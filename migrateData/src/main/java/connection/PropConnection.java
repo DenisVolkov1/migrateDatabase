@@ -1,14 +1,14 @@
-package pojo;
+package connection;
 
-public class PropConnection {
+public abstract class PropConnection {
 	////"jdbc:sqlserver://localhost:1434;encrypt=false;databaseName=SCPRD;currentSchema=wmwhse1;user=sa;password=sql";
 	
-	private String ip ;
-	private String port;
-	private String databaseName;
-	private String schema;
-	private String user;
-	private String password;
+	protected String ip ;
+	protected String port;
+	protected String databaseName;
+	protected String schema;
+	protected String user;
+	protected String password;
 	
 	public PropConnection(String ip, String port, String databaseName, String schema, String user, String password) {
 		super();
@@ -19,17 +19,18 @@ public class PropConnection {
 		this.user = user;
 		this.password = password;
 	}
+	public abstract String getStringConnection();
 	
-	public String getStringConnectionToMSSql() {
-		checkNullEmpty();
-		return "jdbc:sqlserver://"+ip+":"+port+";encrypt=false;databaseName="+databaseName+";currentSchema="+schema+";user="+user+";password="+password;	
-	}
-	public String getStringConnectionToPostgreSQL() {
-		checkNullEmpty();
-		return "jdbc:postgresql://"+ip+":"+port+"/"+databaseName+"?currentSchema="+schema+"&user="+user+"&password="+password;	
-	}
+//	public String getStringConnectionToMSSql() {
+//		checkNullEmpty();
+//		return "jdbc:sqlserver://"+ip+":"+port+";encrypt=false;databaseName="+databaseName+";currentSchema="+schema+";user="+user+";password="+password;	
+//	}
+//	public String getStringConnectionToPostgreSQL() {
+//		checkNullEmpty();
+//		return "jdbc:postgresql://"+ip+":"+port+"/"+databaseName+"?currentSchema="+schema+"&user="+user+"&password="+password;	
+//	}
 	
-	private void checkNullEmpty() {
+	protected void checkNullEmpty() {
 		if(ip == null || port == null || databaseName == null || schema == null || user == null || password == null) {
 			throw new RuntimeException("<NULL> is not acceptable!");
 		}

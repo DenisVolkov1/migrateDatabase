@@ -1,4 +1,4 @@
-package run;
+package connection;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -8,15 +8,10 @@ import org.postgresql.jdbc.PgConnection;
 
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 
-import pojo.PropConnection;
-
 public class ConnectionToDatabases {
 	
-	
-
-
-	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer(PropConnection p) {
-		String connectionUrl = p.getStringConnectionToMSSql();
+	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer(PropMSSQLConnection p) {
+		String connectionUrl = p.getStringConnection();
 		Connection con = null;
 		try {
 			con = DriverManager.getConnection(connectionUrl);
@@ -27,11 +22,8 @@ public class ConnectionToDatabases {
 		return (SQLServerConnection) con;
 	}
 	
-	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL(PropConnection p) {
-//		String connectionUrl = "jdbc:postgresql://localhost:5432/SCPRD?currentSchema=public";
-//		String user ="postgres";
-//		String password ="sql";
-		String connectionUrl = p.getStringConnectionToPostgreSQL();
+	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL(PropPostgreConnection p) {
+		String connectionUrl = p.getStringConnection();
 		Connection con = null;
 		try {
 			con = DriverManager.getConnection(connectionUrl);

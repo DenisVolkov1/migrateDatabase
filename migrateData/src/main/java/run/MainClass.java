@@ -17,16 +17,19 @@ import org.postgresql.jdbc.PgConnection;
 
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 
+import connection.ConnectionToDatabases;
+import connection.PropConnection;
+import connection.PropMSSQLConnection;
+import connection.PropPostgreConnection;
 import mappings.MappingTypes;
-import pojo.PropConnection;
 import pojo.TableInformation;
 
 import static mappings.MappingTypes.*;
 
 public class MainClass {
 	
-	private static final PropConnection PROP_MSSQL = new PropConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
-	private static final PropConnection PROP_POSTGRES = new PropConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
+	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
+	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
 	public static void main(String[] args) {
 		 call();
@@ -62,56 +65,54 @@ public class MainClass {
 				  .collect(Collectors.toSet());
 		return result;
 	}
-
-	private static void migrateTable_FromMSSQLToPosgreSQL(Connection connectionMSSql,PgConnection connectionPostgreSQL,String MSSQLSchema, String postgreSchema, String tableName) throws Throwable {
+	
+	private static String INSERT_INTO_PostgreSQLTable(String tableName, List<String> columns) {
+		String columnsThroughoutComma = String.join(",", columns);
+		String QMarks ="";
+		for (int i = 0; i < columns.size(); i++) QMarks += "?,";
+		QMarks = QMarks.substring(0, QMarks.length()-1);
+		
+		return "INSERT INTO " + tableName + " (" + columnsThroughoutComma + ") \n"
+			 + "OVERRIDING SYSTEM VALUE \n"
+			 + "VALUES("+QMarks+") \n";
+	}
+	private static String SELECT_FROM_MSSQLTable(String tableName, List<String> columns) {
+		String columnsThroughoutComma = String.join(",", columns);
+		return "SELECT " + columnsThroughoutComma +" FROM "+tableName;
+	}
+	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection connectionMSSql,PgConnection connectionPostgreSQL,String MSSQLSchema, String postgreSchema, String tableName) throws Throwable {
 		// TODO Auto-generated method stub
 		
 		
-		List<TableInformation> dt = getDependensiesTablesPostgreSQL(connectionPostgreSQL, postgreSchema, tableName);
-		
-		if(!(dt.isEmpty())) {
-			String depTable = dt.get(0).getTableName();
-			String depSchemaTable = dt.get(0).getTableName();
-			
-			
-			migrateTable_FromMSSQLToPosgreSQL(connectionMSSql, connectionPostgreSQL, MSSQLSchema, depSchemaTable, depTable);
-		}
-		
-		            String s = "INSERT INTO REWORK "//(REWORKNUMBER,DESCRIPTION,TASK,TASKMONETKA,ISDELETED,ADDDATE,ADDWHO,EDITWHO,EDITDATE) "
-            		+ " OVERRIDING SYSTEM VALUE "
-            		+ "VALUES(?,?,?,?,?,?,?,?,?)";
+		            String s = INSERT_INTO_PostgreSQLTable(tableName, getColumnNamesToList(connectionMSSql, MSSQLSchema, tableName));
+		            String s2 = SELECT_FROM_MSSQLTable(tableName, getColumnNamesToList(connectionMSSql, MSSQLSchema, tableName));
+		            		
+//		            		"INSERT INTO REWORK "//(REWORKNUMBER,DESCRIPTION,TASK,TASKMONETKA,ISDELETED,ADDDATE,ADDWHO,EDITWHO,EDITDATE) "
+//            		+ " OVERRIDING SYSTEM VALUE "
+//            		+ "VALUES(?,?,?,?,?,?,?,?,?)";
 		
 		
         try (Statement stmtMSSql = connectionMSSql.createStatement(); 
         		PreparedStatement stmtPostgreSQL = connectionPostgreSQL.prepareStatement(s);) {
             String SQL = "SELECT top 1 *"
-//            		"   REWORKNUMBER," + 
-//            		"   DESCRIPTION," + 
-//            		"	TASK," + 
-//            		"	TASKMONETKA," + 
-//            		"	ISDELETED," + 
-//            		"	ADDDATE," + 
-//            		"	ADDWHO," + 
-//            		"	EDITWHO," + 
-//            		"	EDITDATE "
             		+ "FROM REWORK where task= 'FBR0082'";
-            ResultSet rs = stmtMSSql.executeQuery(SQL);
+            ResultSet rsMSSql = stmtMSSql.executeQuery(SQL);
       
-            List<String> listColumnNames = getColumnNames(rs);
+            List<String> listColumnNames = columnNamesFromRS(rsMSSql);
             
 
             // Iterate through the data in the result set and display it.
-            	while (rs.next()) {
+            	while (rsMSSql.next()) {
             		
-            		stmtPostgreSQL.setObject(1,fromJavaTypesToPostgresSql(rs.getObject(1)));
-            		stmtPostgreSQL.setObject(2,fromJavaTypesToPostgresSql(rs.getObject(2)));
-            		stmtPostgreSQL.setObject(3,fromJavaTypesToPostgresSql(rs.getObject(3)));
-            		stmtPostgreSQL.setObject(4,fromJavaTypesToPostgresSql(rs.getObject(4)));
-            		stmtPostgreSQL.setObject(5,fromJavaTypesToPostgresSql(rs.getObject(5)));
-            		stmtPostgreSQL.setObject(6,fromJavaTypesToPostgresSql(rs.getObject(6)));
-            		stmtPostgreSQL.setObject(7,fromJavaTypesToPostgresSql(rs.getObject(7)));
-            		stmtPostgreSQL.setObject(8,fromJavaTypesToPostgresSql(rs.getObject(8)));
-            		stmtPostgreSQL.setObject(9,fromJavaTypesToPostgresSql(rs.getObject(9)));
+            		stmtPostgreSQL.setObject(1,fromJavaTypesToPostgresSql(rsMSSql.getObject(1)));
+            		stmtPostgreSQL.setObject(2,fromJavaTypesToPostgresSql(rsMSSql.getObject(2)));
+            		stmtPostgreSQL.setObject(3,fromJavaTypesToPostgresSql(rsMSSql.getObject(3)));
+            		stmtPostgreSQL.setObject(4,fromJavaTypesToPostgresSql(rsMSSql.getObject(4)));
+            		stmtPostgreSQL.setObject(5,fromJavaTypesToPostgresSql(rsMSSql.getObject(5)));
+            		stmtPostgreSQL.setObject(6,fromJavaTypesToPostgresSql(rsMSSql.getObject(6)));
+            		stmtPostgreSQL.setObject(7,fromJavaTypesToPostgresSql(rsMSSql.getObject(7)));
+            		stmtPostgreSQL.setObject(8,fromJavaTypesToPostgresSql(rsMSSql.getObject(8)));
+            		stmtPostgreSQL.setObject(9,fromJavaTypesToPostgresSql(rsMSSql.getObject(9)));
             		stmtPostgreSQL.addBatch();
             		
             	}
@@ -124,7 +125,10 @@ public class MainClass {
         }
 		
 	}
-	private static List<String> getColumnNames(ResultSet rs) throws SQLException {
+
+
+
+	private static List<String> columnNamesFromRS(ResultSet rs) throws SQLException {
 		// TODO Auto-generated method stub
 		ResultSetMetaData rsmt = rs.getMetaData();
 		List<String> result = new ArrayList<String>();
@@ -149,9 +153,15 @@ public class MainClass {
 		try (SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); Statement stmtM = conM.createStatement();
 				PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES); Statement stmtP = conP.createStatement();){
 			 //ResultSet rsM = stmtM.executeQuery(q);
-			 System.out.println(getAllTableNames(conM, "wmwhse1") + " " + getAllTableNames(conM, "wmwhse1").size());
-			 System.out.println(getAllTableNames(conP, "wmwhse1") + " " + getAllTableNames(conP, "wmwhse1").size());
+			 //System.out.println(getAllTableNames(conM, "wmwhse1") + " " + getAllTableNames(conM, "wmwhse1").size());
+			 //System.out.println(getAllTableNames(conP, "wmwhse1") + " " + getAllTableNames(conP, "wmwhse1").size());
 			 
+			System.out.println(getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL").size()+" :: "+getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL"));
+			//System.out.println(getColumnNamesToList(conM, "wmwhse1", "LOC"));
+			
+			System.out.println( INSERT_INTO_PostgreSQLTable("ACCESSORIAL", getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL")));
+			System.out.println( SELECT_FROM_MSSQLTable("ACCESSORIAL", getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL")));
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -167,20 +177,10 @@ public class MainClass {
 			return  singleColumnToList(stmt.executeQuery(sql));
 		}
 	}
-	private static List<String> getAllTablesPostgreSQL(SQLServerConnection conM, String base,String schema) throws SQLException {
-		String sql =
-		"SELECT TABLE_NAME "+
-		"FROM "+base+".INFORMATION_SCHEMA.TABLES "
-		+"WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = '" + schema + "'";
-		
-		try (Statement stmt = conM.createStatement();){
-			return  singleColumnToList(stmt.executeQuery(sql));
-		}
-	}
 
-	private static List<String> getColumnNames(Connection con,String toSchema,String tableName) throws SQLException {
+	private static List<String> getColumnNamesToList(Connection con,String toSchema,String tableName) throws SQLException {
 		try (Statement stmt = con.createStatement();){
-			return  getColumnNames(stmt.executeQuery("select * from "+toSchema+"."+tableName+" where 1=2 "));
+			return  columnNamesFromRS(stmt.executeQuery("select * from "+toSchema+"."+tableName+" where 1=2 "));
 		}
 	}
 	
