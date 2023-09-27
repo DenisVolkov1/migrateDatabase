@@ -18,17 +18,9 @@ public abstract class PropConnection {
 		this.schema = schema;
 		this.user = user;
 		this.password = password;
+		checkNullEmpty();
 	}
-	public abstract String getStringConnection();
-	
-//	public String getStringConnectionToMSSql() {
-//		checkNullEmpty();
-//		return "jdbc:sqlserver://"+ip+":"+port+";encrypt=false;databaseName="+databaseName+";currentSchema="+schema+";user="+user+";password="+password;	
-//	}
-//	public String getStringConnectionToPostgreSQL() {
-//		checkNullEmpty();
-//		return "jdbc:postgresql://"+ip+":"+port+"/"+databaseName+"?currentSchema="+schema+"&user="+user+"&password="+password;	
-//	}
+	protected abstract String getStringConnection();
 	
 	protected void checkNullEmpty() {
 		if(ip == null || port == null || databaseName == null || schema == null || user == null || password == null) {
@@ -38,42 +30,54 @@ public abstract class PropConnection {
 			throw new RuntimeException("<EMPTY> is not acceptable!");
 		}
 	}
-
+	
 	public String getIp() {
+		checkNullEmpty();
 		return ip;
 	}
 	public void setIp(String ip) {
 		this.ip = ip;
+		checkNullEmpty();
 	}
 	public String getPort() {
+		checkNullEmpty();
 		return port;
 	}
 	public void setPort(String port) {
 		this.port = port;
+		checkNullEmpty();
 	}
 	public String getDatabaseName() {
+		checkNullEmpty();
 		return databaseName;
 	}
 	public void setDatabaseName(String databaseName) {
 		this.databaseName = databaseName;
+		checkNullEmpty();
 	}
 	public String getSchema() {
+		checkNullEmpty();
 		return schema;
 	}
 	public void setSchema(String schema) {
 		this.schema = schema;
+		checkNullEmpty();
 	}
 	public String getUser() {
+		checkNullEmpty();
 		return user;
 	}
 	public void setUser(String user) {
 		this.user = user;
+		checkNullEmpty();
 	}
 	public String getPassword() {
+		checkNullEmpty();
 		return password;
 	}
 	public void setPassword(String password) {
 		this.password = password;
+		checkNullEmpty();
 	}
 	
 	
