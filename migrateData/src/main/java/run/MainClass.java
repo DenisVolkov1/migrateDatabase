@@ -146,7 +146,7 @@ public class MainClass {
 		}
 
 		Instant end = Instant.now();
-		LOg.INFO("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Заняло: "+Duration.between(start, end).getSeconds()+" сек.");
+		LOg.INFO("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Заняло: "+printTime(Duration.between(start, end).getSeconds()));
 		LOg.INFO("------------------------------------------------------");
 	}
 	private static int maxLenghtTableName = 1;
