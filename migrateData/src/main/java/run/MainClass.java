@@ -13,6 +13,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
@@ -44,15 +47,14 @@ public class MainClass {
 	
 	public static void main(String[] args) {
 		
-	runMain();
-		
+	//runMain();
+		System.out.println( printTime(2665));
 		//call();
 
-
-	
 	}
 
 	private static void runMain() {
+		Instant start = Instant.now();
 		try {
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("INFO :: "+new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(Calendar.getInstance().getTime())+" :::START:::");
@@ -60,26 +62,42 @@ public class MainClass {
 			try (Connection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 					Connection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
 						if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to MSSQL server -");
-						if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to PostgreSQL server -");
-						LOg.INFO("------------------------------------------------------");
+						if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to PostgreSQL server -");		
 			}
+			LOg.INFO("------------------------------------------------------");
 			
 			try (SQLServerConnection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 	           	 PgConnection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
 				
-				truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
-//				List<String> listTables = getAllTableNames(connectionMSSql, PROP_MSSQL.getSchema());
-				
-//				for (int i = 0; i < listTables.size(); i++) {
-//					
-//					String tableName = listTables.get(i);
-					
-						migrateTable_FromMSSQLToPosgreSQL(connectionMSSql, connectionPostgreSQL, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema(), "pbsrpt_reports");
-					
-//				}
+				//truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
+					List<String> listTables = getAllTableNames(connectionMSSql, PROP_MSSQL.getSchema());
+					setMaxLenghtTableName(listTables);
+					 Collections.sort(listTables);
+					 	//
+						for (int i = 0; i < listTables.size(); i++) {
+							String tableName = listTables.get(i);
+								migrateTable_FromMSSQLToPosgreSQL(connectionMSSql, connectionPostgreSQL, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema(), tableName);
+						}
 	        }
-			
 		} catch (Throwable e) { LOg.ERROR(e); }
+		Instant end = Instant.now();
+		LOg.INFO("------------------------------------------------------");
+		long sec = Duration.between(start, end).getSeconds();
+		LOg.INFO("-Завершено: Заняло(всего) "+printTime(sec));
+	}
+
+	private static String printTime(long sec) {
+		long hour = sec / 3600;
+		long minutes = (sec / 60) - (60 * hour);
+		long seconds = sec - (60 * minutes) - (3600 * hour);
+				
+		return ((hour>0) ? hour+" ч. ":"") + ((minutes>0) ? minutes+" мин. ":"") + ((seconds>0) ? seconds+" сек.":"") ;
+	}
+
+	private static void setMaxLenghtTableName(List<String> listTables) {
+		String longest = listTables.stream().
+			    max(Comparator.comparingInt(String::length)).get();
+			maxLenghtTableName = longest.length();
 	}
 
 	private static List<String> intersectionOfTwoLists(List<String> list, List<String> otherList) {
@@ -99,19 +117,19 @@ public class MainClass {
 		return result;
 	}
 	
-	private static String INSERT_INTO_PostgreSQLTable(String tableName, List<String> columns) {
+	private static String INSERT_INTO_PostgreSQLTable(String schema,String tableName,List<String> columns) {
 		String columnsThroughoutComma = String.join(",", columns);
 		String QMarks ="";
 		for (int i = 0; i < columns.size(); i++) QMarks += "?,";
 		QMarks = QMarks.substring(0, QMarks.length()-1);
 		
-		return "INSERT INTO " + tableName + " (" + columnsThroughoutComma + ") \n"
+		return "INSERT INTO "+schema+"."+tableName+" (" + columnsThroughoutComma + ") \n"
 			 + "OVERRIDING SYSTEM VALUE \n"
 			 + "VALUES("+QMarks+") \n";
 	}
-	private static String SELECT_FROM_MSSQLTable(String tableName, List<String> columns) {
+	private static String SELECT_FROM_MSSQLTable(String schema, String tableName, List<String> columns) {
 		String columnsThroughoutComma = String.join(",", columns);
-		return "SELECT " + columnsThroughoutComma +" FROM "+tableName;
+		return "SELECT " + columnsThroughoutComma +" FROM "+schema+"."+tableName;
 	}
 	private static void truncateAllTablePostgreSQL(PgConnection conP,String schema) throws SQLException {
 		List<String> tableNames = getAllTableNames(conP, schema);
@@ -128,31 +146,40 @@ public class MainClass {
 		}
 
 		Instant end = Instant.now();
-		LOg.INFO("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Заняло: "+Duration.between(start, end).getSeconds()+"сек.");
+		LOg.INFO("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Заняло: "+Duration.between(start, end).getSeconds()+" сек.");
+		LOg.INFO("------------------------------------------------------");
 	}
+	private static int maxLenghtTableName = 1;
 	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection connectionMSSql,PgConnection connectionPostgreSQL,String MSSQLSchema, String postgreSchema, String tableName) throws Throwable {
 		// TODO Auto-generated method stub
 		List<String> columnNames_MSSQLTable      = getColumnNamesToList(connectionMSSql,        MSSQLSchema, tableName);
 		List<String> columnNames_PostgreSQLTable = getColumnNamesToList(connectionPostgreSQL, postgreSchema, tableName);
 		List<String> columnNames = intersectionOfTwoLists(columnNames_MSSQLTable, columnNames_PostgreSQLTable);
 		
-			String selectMSSQLTable = SELECT_FROM_MSSQLTable(tableName,      columnNames);
-	        String insertPostgreSQLTable = INSERT_INTO_PostgreSQLTable(tableName, columnNames);
-	        		            			
-        try (Statement stmtMSSql = connectionMSSql.createStatement(); 
+			String selectMSSQLTable = SELECT_FROM_MSSQLTable(MSSQLSchema,tableName,columnNames);
+	        String insertPostgreSQLTable = INSERT_INTO_PostgreSQLTable(postgreSchema,tableName,columnNames);
+	        
+        try (PreparedStatement stmtMSSql = connectionMSSql.prepareStatement(selectMSSQLTable); 
         		PreparedStatement stmtPostgreSQL = connectionPostgreSQL.prepareStatement(insertPostgreSQLTable);) {
-            ResultSet rsMSSql = stmtMSSql.executeQuery(selectMSSQLTable);
+            ResultSet rsMSSql = stmtMSSql.executeQuery();
+            
+            int rowCount = 0;
+            Instant start = Instant.now();
             
             	while (rsMSSql.next()) {
-            		
-            		for (int i = 1; i <= columnNames.size(); i++) {
-            			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i)));
-					}
-
-            		stmtPostgreSQL.addBatch();
-            		
+//            		
+//            		for (int i = 1; i <= columnNames.size(); i++) {
+//            			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i)));
+//					}
+//            		stmtPostgreSQL.addBatch();
+            		rowCount++;
             	}
-            	stmtPostgreSQL.executeBatch();
+//            	int[] res = stmtPostgreSQL.executeBatch();
+            	Instant end = Instant.now();
+            	int mltn=maxLenghtTableName;
+            	//
+            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %d <----> (PostgreSQL) %s.%-"+mltn+"s строк: %d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
+            	LOg.INFO(s);
         }
 	}
 
@@ -204,7 +231,7 @@ public class MainClass {
 	
 	private static List<String> getAllTableNames(Connection con,String schema) throws SQLException {
 		String sql =
-		"SELECT TABLE_NAME "+
+		"SELECT top 10 TABLE_NAME "+
 		"FROM INFORMATION_SCHEMA.TABLES "
 		+"WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = '" + schema + "'";
 		
