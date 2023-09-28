@@ -36,8 +36,11 @@ import static mappings.MappingTypes.*;
 
 public class MainClass {
 	
-	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
-	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
+//	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
+//	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
+	
+	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
+	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
 	public static void main(String[] args) {
 		
@@ -50,35 +53,37 @@ public class MainClass {
 	}
 
 	private static void runMain() {
-		LOg.INFO("------------------------------------------------------");
-		LOg.INFO("INFO :: "+new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(Calendar.getInstance().getTime())+" :::START:::");
-		LOg.INFO("------------------------------------------------------");
-		try (Connection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
-				Connection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
-					if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to MSSQL server -");
-					if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to PostgreSQL server -");
-					LOg.INFO("------------------------------------------------------");
-		} catch (Throwable e) { LOg.ERROR(e); }
+		try {
+			LOg.INFO("------------------------------------------------------");
+			LOg.INFO("INFO :: "+new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(Calendar.getInstance().getTime())+" :::START:::");
+			LOg.INFO("------------------------------------------------------");
+			try (Connection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
+					Connection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
+						if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to MSSQL server -");
+						if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to PostgreSQL server -");
+						LOg.INFO("------------------------------------------------------");
+			}
 			
-		
-//		for (int i = 0; i < bases.length; i++) {
-//			try (SQLServerConnection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
-//	           	 PgConnection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
-//				
-//				truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
-//				
-//				
-//	        	
-//	        	
-//	        } catch (Throwable e) {
-//	        	LOg.ERROR(e);
-//			}
-//		}
-		
+			try (SQLServerConnection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
+	           	 PgConnection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
+				
+				truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
+//				List<String> listTables = getAllTableNames(connectionMSSql, PROP_MSSQL.getSchema());
+				
+//				for (int i = 0; i < listTables.size(); i++) {
+//					
+//					String tableName = listTables.get(i);
+					
+						migrateTable_FromMSSQLToPosgreSQL(connectionMSSql, connectionPostgreSQL, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema(), "pbsrpt_reports");
+					
+//				}
+	        }
+			
+		} catch (Throwable e) { LOg.ERROR(e); }
 	}
 
 	private static List<String> intersectionOfTwoLists(List<String> list, List<String> otherList) {
-		// TODO Auto-generated method stub
+		//Делаем листы в нижнем регистре
 		List<String> listToLowerCase = list.stream()
                 .map(String::toLowerCase)
                 .collect(Collectors.toList());
@@ -86,7 +91,7 @@ public class MainClass {
 		List<String> otherListToLowerCase = list.stream()
                 .map(String::toLowerCase)
                 .collect(Collectors.toList());
-		
+		//Записываем все совпадения из обоих листов.
 		List<String> result = listToLowerCase.stream()
 				  .distinct()
 				  .filter(otherListToLowerCase::contains)
@@ -143,29 +148,13 @@ public class MainClass {
             		for (int i = 1; i <= columnNames.size(); i++) {
             			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i)));
 					}
-//            		stmtPostgreSQL.setObject(1,fromJavaTypesToPostgresSql(rsMSSql.getObject(1)));
-//            		stmtPostgreSQL.setObject(2,fromJavaTypesToPostgresSql(rsMSSql.getObject(2)));
-//            		stmtPostgreSQL.setObject(3,fromJavaTypesToPostgresSql(rsMSSql.getObject(3)));
-//            		stmtPostgreSQL.setObject(4,fromJavaTypesToPostgresSql(rsMSSql.getObject(4)));
-//            		stmtPostgreSQL.setObject(5,fromJavaTypesToPostgresSql(rsMSSql.getObject(5)));
-//            		stmtPostgreSQL.setObject(6,fromJavaTypesToPostgresSql(rsMSSql.getObject(6)));
-//            		stmtPostgreSQL.setObject(7,fromJavaTypesToPostgresSql(rsMSSql.getObject(7)));
-//            		stmtPostgreSQL.setObject(8,fromJavaTypesToPostgresSql(rsMSSql.getObject(8)));
-//            		stmtPostgreSQL.setObject(9,fromJavaTypesToPostgresSql(rsMSSql.getObject(9)));
+
             		stmtPostgreSQL.addBatch();
             		
             	}
             	stmtPostgreSQL.executeBatch();
-
         }
-        // Handle any errors that may have occurred.
-        catch (Throwable t) {
-            t.printStackTrace();
-        }
-		
 	}
-
-
 
 	private static List<String> columnNamesFromRS(ResultSet rs) throws SQLException {
 		// TODO Auto-generated method stub
@@ -226,7 +215,7 @@ public class MainClass {
 
 	private static List<String> getColumnNamesToList(Connection con,String toSchema,String tableName) throws SQLException {
 		try (Statement stmt = con.createStatement();){
-			return  columnNamesFromRS(stmt.executeQuery("select * from "+toSchema+"."+tableName+" where 1=2 "));
+			return columnNamesFromRS(stmt.executeQuery("select * from "+toSchema+"."+tableName+" where 1=2 "));
 		}
 	}
 	
