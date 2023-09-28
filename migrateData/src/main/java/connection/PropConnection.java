@@ -1,5 +1,9 @@
 package connection;
 
+import java.util.Properties;
+
+import util.PropertiesInFile;
+
 public abstract class PropConnection {
 	////"jdbc:sqlserver://localhost:1434;encrypt=false;databaseName=SCPRD;currentSchema=wmwhse1;user=sa;password=sql";
 	
@@ -20,6 +24,9 @@ public abstract class PropConnection {
 		this.password = password;
 		checkNullEmpty();
 	}
+	
+	public PropConnection() {}
+
 	protected abstract String getStringConnection();
 	
 	protected void checkNullEmpty() {
@@ -79,6 +86,13 @@ public abstract class PropConnection {
 		this.password = password;
 		checkNullEmpty();
 	}
+
+	@Override
+	public String toString() {
+		return " [ip=" + ip + ", port=" + port + ", databaseName=" + databaseName + ", schema=" + schema
+				+ ", user=" + user + ", password=" + password + "]";
+	}
+	
 	
 	
 	

@@ -10,15 +10,15 @@ import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 
 public class ConnectionToDatabases {
 	
-	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer(PropMSSQLConnection p) {
+	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer(PropMSSQLConnection p) throws SQLException {
 		String connectionUrl = p.getStringConnection();
 		Connection con = null;
-		try {
+		//try {
 			con = DriverManager.getConnection(connectionUrl);
-		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} 
+//		} catch (SQLException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		} 
 		return (SQLServerConnection) con;
 	}
 	

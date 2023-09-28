@@ -1,0 +1,67 @@
+28.09.2023 17:07:16 :::START:::run.MainClass.runMain(MainClass.java:57)run.MainClass.main(MainClass.java:44)28.09.2023 17:11:16 :::START:::
+run.MainClass.runMain(MainClass.java:57)run.MainClass.main(MainClass.java:44)28.09.2023 17:13:19 :::START:::
+run.MainClass.runMain(MainClass.java:57)run.MainClass.main(MainClass.java:44)------------------------------------------------------
+INFO :: 28.09.2023 17:16:21 :::START:::
+------------------------------------------------------
+run.MainClass.runMain(MainClass.java:58)run.MainClass.main(MainClass.java:44)------------------------------------------------------
+INFO :: 28.09.2023 17:17:59 :::START:::
+------------------------------------------------------
+run.MainClass.runMain(MainClass.java:58)run.MainClass.main(MainClass.java:44)------------------------------------------------------
+INFO :: 28.09.2023 17:19:03 :::START:::
+------------------------------------------------------
+run.MainClass.runMain(MainClass.java:58)
+run.MainClass.main(MainClass.java:44)
+------------------------------------------------------
+INFO :: 28.09.2023 17:21:33 :::START:::
+------------------------------------------------------
+run.MainClass.runMain(MainClass.java:58)
+run.MainClass.main(MainClass.java:44)
+------------------------------------------------------
+INFO :: 28.09.2023 17:23:00 :::START:::
+------------------------------------------------------
+------------------------------------------------------
+INFO :: 28.09.2023 17:27:20 :::START:::
+------------------------------------------------------
+------------------------------------------------------
+INFO :: 28.09.2023 17:28:10 :::START:::
+------------------------------------------------------
+------------------------------------------------------
+INFO :: 28.09.2023 17:32:12 :::START:::
+------------------------------------------------------
+------------------------------------------------------
+INFO :: 28.09.2023 17:37:48 :::START:::
+------------------------------------------------------
+com.microsoft.sqlserver.jdbc.SQLServerException.makeFromDriverError(SQLServerException.java:237)
+com.microsoft.sqlserver.jdbc.SQLServerException.convertConnectExceptionToSQLServerException(SQLServerException.java:288)
+com.microsoft.sqlserver.jdbc.SocketFinder.findSocket(IOBuffer.java:2574)
+com.microsoft.sqlserver.jdbc.TDSChannel.open(IOBuffer.java:715)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.connectHelper(SQLServerConnection.java:3427)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.login(SQLServerConnection.java:3077)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.connectInternal(SQLServerConnection.java:2919)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.connect(SQLServerConnection.java:1787)
+com.microsoft.sqlserver.jdbc.SQLServerDriver.connect(SQLServerDriver.java:1229)
+java.sql/java.sql.DriverManager.getConnection(DriverManager.java:681)
+java.sql/java.sql.DriverManager.getConnection(DriverManager.java:252)
+connection.ConnectionToDatabases.getConnectionToMSSqlServer(ConnectionToDatabases.java:17)
+run.MainClass.runMain(MainClass.java:56)
+run.MainClass.main(MainClass.java:44)
+Не удалось установить соединение TCP/IP к серверу localhost по порту 1433. Ошибка: "Connection refused: no further information. Проверьте свойства соединения. Убедитесь, что на сервере запущен экземпляр SQL Server и он принимает TCP/IP-соединения по порту. Убедитесь, что TCP-соединения по этому порту не блокируются брандмауэром.".
+------------------------------------------------------
+INFO :: 28.09.2023 17:43:58 :::START:::
+------------------------------------------------------
+MESSAGE ERROR ::: Не удалось установить соединение TCP/IP к серверу localhost по порту 1433. Ошибка: "Connection refused: no further information. Проверьте свойства соединения. Убедитесь, что на сервере запущен экземпляр SQL Server и он принимает TCP/IP-соединения по порту. Убедитесь, что TCP-соединения по этому порту не блокируются брандмауэром.".
+com.microsoft.sqlserver.jdbc.SQLServerException.makeFromDriverError(SQLServerException.java:237)
+com.microsoft.sqlserver.jdbc.SQLServerException.convertConnectExceptionToSQLServerException(SQLServerException.java:288)
+com.microsoft.sqlserver.jdbc.SocketFinder.findSocket(IOBuffer.java:2574)
+com.microsoft.sqlserver.jdbc.TDSChannel.open(IOBuffer.java:715)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.connectHelper(SQLServerConnection.java:3427)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.login(SQLServerConnection.java:3077)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.connectInternal(SQLServerConnection.java:2919)
+com.microsoft.sqlserver.jdbc.SQLServerConnection.connect(SQLServerConnection.java:1787)
+com.microsoft.sqlserver.jdbc.SQLServerDriver.connect(SQLServerDriver.java:1229)
+java.sql/java.sql.DriverManager.getConnection(DriverManager.java:681)
+java.sql/java.sql.DriverManager.getConnection(DriverManager.java:252)
+connection.ConnectionToDatabases.getConnectionToMSSqlServer(ConnectionToDatabases.java:17)
+run.MainClass.runMain(MainClass.java:56)
+run.MainClass.main(MainClass.java:44)
+Не удалось установить соединение TCP/IP к серверу localhost по порту 1433. Ошибка: "Connection refused: no further information. Проверьте свойства соединения. Убедитесь, что на сервере запущен экземпляр SQL Server и он принимает TCP/IP-соединения по порту. Убедитесь, что TCP-соединения по этому порту не блокируются брандмауэром.".

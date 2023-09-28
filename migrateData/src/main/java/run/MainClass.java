@@ -7,10 +7,12 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Set;
 import java.util.SortedSet;
@@ -26,42 +28,53 @@ import connection.PropMSSQLConnection;
 import connection.PropPostgreConnection;
 import mappings.MappingTypes;
 import pojo.TableInformation;
+import util.LOg;
+import util.PropertiesInFile;
+import util.WriteLogToFile;
 
 import static mappings.MappingTypes.*;
 
 public class MainClass {
 	
-	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
-	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
+	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
+	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
 	
 	public static void main(String[] args) {
 		
-		String bases[] = { "SCPRD" };
+	runMain();
+		
+		//call();
+
+
+	
+	}
+
+	private static void runMain() {
+		LOg.INFO("------------------------------------------------------");
+		LOg.INFO("INFO :: "+new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(Calendar.getInstance().getTime())+" :::START:::");
+		LOg.INFO("------------------------------------------------------");
 		try (Connection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 				Connection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
-					if(connectionMSSql.isValid(10)) System.out.println("- Connection established to MSSQL server -");
-					if(connectionMSSql.isValid(10)) System.out.println("- Connection established to PostgreSQL server -");
-						System.out.println("------------------------------------------------------");
-		} catch (Throwable e) { e.printStackTrace();}
+					if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to MSSQL server -");
+					if(connectionMSSql.isValid(5)) LOg.INFO("- Connection established to PostgreSQL server -");
+					LOg.INFO("------------------------------------------------------");
+		} catch (Throwable e) { LOg.ERROR(e); }
+			
 		
-	//call();
+//		for (int i = 0; i < bases.length; i++) {
+//			try (SQLServerConnection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
+//	           	 PgConnection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
+//				
+//				truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
+//				
+//				
+//	        	
+//	        	
+//	        } catch (Throwable e) {
+//	        	LOg.ERROR(e);
+//			}
+//		}
 		
-		
-		for (int i = 0; i < bases.length; i++) {
-			try (SQLServerConnection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
-	           	 PgConnection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
-				
-				truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
-				
-				
-	        	
-	        	
-	        } catch (Throwable e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-
 	}
 
 	private static List<String> intersectionOfTwoLists(List<String> list, List<String> otherList) {
@@ -110,7 +123,7 @@ public class MainClass {
 		}
 
 		Instant end = Instant.now();
-		System.out.println("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Заняло: "+Duration.between(start, end).getSeconds()+"сек.");
+		LOg.INFO("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Заняло: "+Duration.between(start, end).getSeconds()+"сек.");
 	}
 	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection connectionMSSql,PgConnection connectionPostgreSQL,String MSSQLSchema, String postgreSchema, String tableName) throws Throwable {
 		// TODO Auto-generated method stub
@@ -191,8 +204,10 @@ public class MainClass {
 			//System.out.println( INSERT_INTO_PostgreSQLTable("ACCESSORIAL", getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL")));
 			//System.out.println( SELECT_FROM_MSSQLTable("ACCESSORIAL", getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL")));
 			
-			truncateAllTablePostgreSQL(conP, "wmwhse1");
 			
+			//truncateAllTablePostgreSQL(conP, "wmwhse1");
+			
+			//WriteLogToFile.log_Write(e1.toString());
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
