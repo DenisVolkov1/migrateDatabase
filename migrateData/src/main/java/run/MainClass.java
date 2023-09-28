@@ -110,7 +110,7 @@ public class MainClass {
 		}
 
 		Instant end = Instant.now();
-		System.out.println("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Заняло: "+Duration.between(start, end).getSeconds()+" сек.");
+		System.out.println("- TRUNCATE CASCADE: All tables to PostgreSQL DONE! (in schema '"+schema+"') Р—Р°РЅСЏР»Рѕ: "+Duration.between(start, end).getSeconds()+"СЃРµРє.");
 	}
 	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection connectionMSSql,PgConnection connectionPostgreSQL,String MSSQLSchema, String postgreSchema, String tableName) throws Throwable {
 		// TODO Auto-generated method stub
