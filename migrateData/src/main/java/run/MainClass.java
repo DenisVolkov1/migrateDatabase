@@ -39,22 +39,23 @@ import static mappings.MappingTypes.*;
 
 public class MainClass {
 	
-//	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
-//	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
+	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
+	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
 	
-	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
-	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
+	//private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
+	//private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
 	public static void main(String[] args) {
 		
-	//runMain();
-		System.out.println( printTime(2665));
+	runMain();
+		
 		//call();
 
 	}
 
 	private static void runMain() {
 		Instant start = Instant.now();
+		List<String> listTables = null;
 		try {
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("INFO :: "+new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(Calendar.getInstance().getTime())+" :::START:::");
@@ -68,10 +69,13 @@ public class MainClass {
 			
 			try (SQLServerConnection connectionMSSql = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 	           	 PgConnection connectionPostgreSQL = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
-				
-				//truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
-					List<String> listTables = getAllTableNames(connectionMSSql, PROP_MSSQL.getSchema());
+				// Транкейтим данные на PosygreSQL для данной схемы.
+				truncateAllTablePostgreSQL(connectionPostgreSQL, PROP_POSTGRES.getSchema());
+					// Все табл что надо перенести.
+					listTables = getAllTableNames(connectionMSSql, PROP_MSSQL.getSchema());
+					// 1) данные для формата строки вывода.
 					setMaxLenghtTableName(listTables);
+					setMaxCountTableVAlue(connectionMSSql,PROP_MSSQL.getSchema());
 					 Collections.sort(listTables);
 					 	//
 						for (int i = 0; i < listTables.size(); i++) {
@@ -84,6 +88,12 @@ public class MainClass {
 		LOg.INFO("------------------------------------------------------");
 		long sec = Duration.between(start, end).getSeconds();
 		LOg.INFO("-Завершено: Заняло(всего) "+printTime(sec));
+		LOg.INFO("-Всего табл.: "+listTables.size()+" шт.");
+		
+	}
+
+	private static void setMaxCountTableVAlue(SQLServerConnection conM,String schema) throws SQLException {
+		maxLenghtCountNumber = getMaxLenCountMssqlTable(conM, schema);
 	}
 
 	private static String printTime(long sec) {
@@ -91,7 +101,7 @@ public class MainClass {
 		long minutes = (sec / 60) - (60 * hour);
 		long seconds = sec - (60 * minutes) - (3600 * hour);
 				
-		return ((hour>0) ? hour+" ч. ":"") + ((minutes>0) ? minutes+" мин. ":"") + ((seconds>0) ? seconds+" сек.":"") ;
+		return ((hour>0) ? hour+" ч. ":"") + ((minutes>0) ? minutes+" мин. ":"") +seconds+" сек.";
 	}
 
 	private static void setMaxLenghtTableName(List<String> listTables) {
@@ -150,6 +160,7 @@ public class MainClass {
 		LOg.INFO("------------------------------------------------------");
 	}
 	private static int maxLenghtTableName = 1;
+	private static int maxLenghtCountNumber = 1;
 	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection connectionMSSql,PgConnection connectionPostgreSQL,String MSSQLSchema, String postgreSchema, String tableName) throws Throwable {
 		// TODO Auto-generated method stub
 		List<String> columnNames_MSSQLTable      = getColumnNamesToList(connectionMSSql,        MSSQLSchema, tableName);
@@ -167,18 +178,19 @@ public class MainClass {
             Instant start = Instant.now();
             
             	while (rsMSSql.next()) {
-//            		
-//            		for (int i = 1; i <= columnNames.size(); i++) {
-//            			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i)));
-//					}
-//            		stmtPostgreSQL.addBatch();
+            		
+            		for (int i = 1; i <= columnNames.size(); i++) {
+            			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i)));
+					}
+            		stmtPostgreSQL.addBatch();
             		rowCount++;
             	}
-//            	int[] res = stmtPostgreSQL.executeBatch();
+            	int[] res = stmtPostgreSQL.executeBatch();
             	Instant end = Instant.now();
             	int mltn=maxLenghtTableName;
+            	int mlcn=maxLenghtCountNumber;
             	//
-            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %d <----> (PostgreSQL) %s.%-"+mltn+"s строк: %d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
+            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
             	LOg.INFO(s);
         }
 	}
@@ -224,6 +236,8 @@ public class MainClass {
 			//truncateAllTablePostgreSQL(conP, "wmwhse1");
 			
 			//WriteLogToFile.log_Write(e1.toString());
+			
+			System.out.println( getMaxLenCountMssqlTable(conM, "wmwhse1"));
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -231,7 +245,7 @@ public class MainClass {
 	
 	private static List<String> getAllTableNames(Connection con,String schema) throws SQLException {
 		String sql =
-		"SELECT top 10 TABLE_NAME "+
+		"SELECT TABLE_NAME "+
 		"FROM INFORMATION_SCHEMA.TABLES "
 		+"WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = '" + schema + "'";
 		
@@ -261,9 +275,9 @@ public class MainClass {
             		"    AND tc.table_schema = ? " + 
             		"    AND tc.table_name = ?;";
 		try (PreparedStatement stmt = con.prepareStatement(SQL);){
-           stmt.setString(1, schema);
-           stmt.setString(2, tableName);
-            ResultSet rs = stmt.executeQuery();
+	           stmt.setString(1, schema);
+	           stmt.setString(2, tableName);
+               ResultSet rs = stmt.executeQuery();
             
             while(rs.next()){
             	String ft_schema = rs.getString("foreign_table_schema");
@@ -272,6 +286,27 @@ public class MainClass {
             }
 			return  result;
 		}
+	}
+	private static int getMaxLenCountMssqlTable(SQLServerConnection conM,String schema) throws SQLException {
+		int res=0;
+		String SQL = ""
+				+ "SELECT len(max(s.row_count)) "
+				+ "FROM   sys.tables t "
+				+ "JOIN   sys.dm_db_partition_stats s"
+				+ "  ON t.OBJECT_ID = s.OBJECT_ID "
+				+ " AND t.type_desc = 'USER_TABLE' "
+				+ " AND SCHEMA_NAME ([schema_id]) = ? "
+				+ " AND s.index_id IN (0, 1);";
+		
+		try (PreparedStatement stmt = conM.prepareStatement(SQL);){
+	           stmt.setString(1, schema);
+	           ResultSet rs = stmt.executeQuery();
+		
+	        while(rs.next()){
+	        	res = rs.getInt(1);
+	        }
+		}
+		return res;
 	}
 
 }
