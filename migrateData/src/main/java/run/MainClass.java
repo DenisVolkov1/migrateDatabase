@@ -66,7 +66,7 @@ public class MainClass {
 				} else {
 					List<String> schemas_MSSQL      = getAllSchemasMSSQLServer(conM);
 					List<String> schemas_PostgreSQL = getAllSchemasPostgreSQL(conP);
-					List<String> schemas = intersectionOfTwoLists(schemas_MSSQL, schemas_PostgreSQL);
+					List<String> schemas = intersectionOfLists(schemas_MSSQL, schemas_PostgreSQL);
 					for (int i = 0; i < schemas.size(); i++) {
 						String schema = schemas.get(i);
 							migrateTables(conM, conP, schema, schema);
@@ -85,7 +85,9 @@ public class MainClass {
 		// Транкейтим данные на PosygreSQL для данной схемы.
 		truncateAllTablePostgreSQL(conP, postgreSchema);
 			// Все табл что надо перенести.
-			listTables = getAllTableNames(conM, MSSQLSchema);
+			List<TableInformation> listTableMssql = getAllTableNames(conM, MSSQLSchema);
+			List<TableInformation> listTablePostgre = getAllTableNames(conP, postgreSchema);
+			listTables = intersectionOf_TableInformation_Lists(listTableMssql, listTablePostgre);
 			// 1) данные для формата строки вывода.
 			setMaxLenghtTableName(listTables);
 			setMaxCountTableVAlue(conM, MSSQLSchema);
@@ -115,7 +117,7 @@ public class MainClass {
 			
 			List<String> columnNames_MSSQLTable      = getColumnNamesToList(conM,        MSSQLSchema, tableName);
 			List<String> columnNames_PostgreSQLTable = getColumnNamesToList(conP, postgreSchema, tableName);
-			List<String> columnNames = intersectionOfTwoLists(columnNames_MSSQLTable, columnNames_PostgreSQLTable);
+			List<String> columnNames = intersectionOfLists(columnNames_MSSQLTable, columnNames_PostgreSQLTable);
 			
 				String selectMSSQLTable = SELECT_FROM_MSSQLTable(MSSQLSchema,tableName,columnNames);
 		        String insertPostgreSQLTable = INSERT_INTO_PostgreSQLTable(postgreSchema,tableName,columnNames);
@@ -173,7 +175,7 @@ public class MainClass {
 			maxLenghtTableName = longest.length();
 	}
 
-	private static List<String> intersectionOfTwoLists(List<String> list, List<String> otherList) {
+	private static List<String> intersectionOfLists(List<String> list, List<String> otherList) {
 		//Делаем листы в нижнем регистре
 		List<String> listToLowerCase = list.stream()
                 .map(String::toLowerCase)
@@ -184,6 +186,20 @@ public class MainClass {
                 .collect(Collectors.toList());
 		//Записываем все совпадения из обоих листов.
 		List<String> result = listToLowerCase.stream()
+				  .distinct()
+				  .filter(otherListToLowerCase::contains)
+				  .collect(Collectors.toList());
+		return result;
+	}
+	private static List<TableInformation> intersectionOf_TableInformation_Lists(List<TableInformation> list, List<TableInformation> otherList) {
+		//Делаем листы в нижнем регистре
+		List<TableInformation> listToLowerCase = list.stream()
+                .collect(Collectors.toList());
+		
+		List<TableInformation> otherListToLowerCase = otherList.stream()
+                .collect(Collectors.toList());
+		//Записываем все совпадения из обоих листов.
+		List<TableInformation> result = listToLowerCase.stream()
 				  .distinct()
 				  .filter(otherListToLowerCase::contains)
 				  .collect(Collectors.toList());

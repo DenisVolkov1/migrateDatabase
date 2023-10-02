@@ -25,11 +25,19 @@ public class TableInformation {
 		return tableName.length();
 	}
 
+	public void setTableName(String tableName) {
+		this.tableName = tableName;
+	}
+
+	@Override
+	public String toString() {
+		return "TableInformation [tableName=" + tableName + ", alreadyProcessed=" + alreadyProcessed + "]";
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((alreadyProcessed == null) ? 0 : alreadyProcessed.hashCode());
 		result = prime * result + ((tableName == null) ? 0 : tableName.hashCode());
 		return result;
 	}
@@ -43,26 +51,12 @@ public class TableInformation {
 		if (getClass() != obj.getClass())
 			return false;
 		TableInformation other = (TableInformation) obj;
-		if (alreadyProcessed == null) {
-			if (other.alreadyProcessed != null)
-				return false;
-		} else if (!alreadyProcessed.equals(other.alreadyProcessed))
-			return false;
 		if (tableName == null) {
 			if (other.tableName != null)
 				return false;
 		} else if (!tableName.equals(other.tableName))
 			return false;
 		return true;
-	}
-
-	public void setTableName(String tableName) {
-		this.tableName = tableName;
-	}
-
-	@Override
-	public String toString() {
-		return "TableInformation [tableName=" + tableName + ", alreadyProcessed=" + alreadyProcessed + "]";
 	}
 
 
