@@ -1,22 +1,37 @@
 package pojo;
 
-import java.util.Objects;
-
 public class TableInformation {
 	
 	private String tableName;
+	private Boolean alreadyProcessed=false;
 	
-	private String schema;
-	
-	public TableInformation(String tableName, String schema) {
+	public TableInformation(String tableName) {
 		super();
 		this.tableName = tableName;
-		this.schema = schema;
 	}
-	
+		
+	public Boolean getAlreadyProcessed() {
+		return alreadyProcessed;
+	}
+
+	public void setAlreadyProcessed(Boolean alreadyProcessed) {
+		this.alreadyProcessed = alreadyProcessed;
+	}
+
+	public String getTableName() {
+		return tableName;
+	}
+	public int length() {
+		return tableName.length();
+	}
+
 	@Override
 	public int hashCode() {
-		return Objects.hash(schema, tableName);
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((alreadyProcessed == null) ? 0 : alreadyProcessed.hashCode());
+		result = prime * result + ((tableName == null) ? 0 : tableName.hashCode());
+		return result;
 	}
 
 	@Override
@@ -28,25 +43,28 @@ public class TableInformation {
 		if (getClass() != obj.getClass())
 			return false;
 		TableInformation other = (TableInformation) obj;
-		return Objects.equals(schema, other.schema) && Objects.equals(tableName, other.tableName);
-	}
-
-	public String getTableName() {
-		return tableName;
+		if (alreadyProcessed == null) {
+			if (other.alreadyProcessed != null)
+				return false;
+		} else if (!alreadyProcessed.equals(other.alreadyProcessed))
+			return false;
+		if (tableName == null) {
+			if (other.tableName != null)
+				return false;
+		} else if (!tableName.equals(other.tableName))
+			return false;
+		return true;
 	}
 
 	public void setTableName(String tableName) {
 		this.tableName = tableName;
 	}
 
-	public String getSchema() {
-		return schema;
+	@Override
+	public String toString() {
+		return "TableInformation [tableName=" + tableName + ", alreadyProcessed=" + alreadyProcessed + "]";
 	}
 
 
-
-	public void setSchema(String schema) {
-		this.schema = schema;
-	}
 
 }

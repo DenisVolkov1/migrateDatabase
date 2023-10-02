@@ -53,6 +53,9 @@ public class PropertiesInFile {
 	        prop.setProperty("schema_postgre", "<schema_postgre>");
 	        prop.setProperty("user_postgre", "<user_postgre>");
 	        prop.setProperty("password_postgre", "<password_postgre>");
+	        // Extra props
+	        prop.setProperty("is_use_all_schemas", "0");
+
 
 	        // save properties to project root folder
 	        prop.store(output, null);
