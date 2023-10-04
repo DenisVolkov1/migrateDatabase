@@ -1,5 +1,6 @@
 package run;
 
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -20,6 +21,7 @@ import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import connection.ConnectionToDatabases;
 import connection.PropMSSQLConnection;
 import connection.PropPostgreConnection;
+import jdk.nashorn.internal.runtime.Context.ThrowErrorManager;
 import pojo.TableInformation;
 import util.LOg;
 import util.PropertiesInFile;
@@ -69,7 +71,8 @@ public class MainClass {
 					List<String> schemas = intersectionOfLists(schemas_MSSQL, schemas_PostgreSQL);
 					for (int i = 0; i < schemas.size(); i++) {
 						String schema = schemas.get(i);
-							migrateTables(conM, conP, schema, schema);
+							//migrateTables(conM, conP, schema, schema);
+							migrateTables_multithread(conM, conP, schema, schema);
 					}	
 				}
 				
@@ -100,12 +103,39 @@ public class MainClass {
 			LOg.INFO("-Завершено: Всего табл.: "+listTables.size()+" шт.");
 			LOg.INFO("------------------------------------------------------");
 	}
+	private static void migrateTables_multithread(SQLServerConnection conM, PgConnection conP,String MSSQLSchema, String postgreSchema) throws Throwable {
+		// Транкейтим данные на PosygreSQL для данной схемы.
+		truncateAllTablePostgreSQL(conP, postgreSchema);
+			// Все табл что надо перенести.
+			List<TableInformation> listTableMssql = getAllTableNames(conM, MSSQLSchema);
+			List<TableInformation> listTablePostgre = getAllTableNames(conP, postgreSchema);
+			listTables = intersectionOf_TableInformation_Lists(listTableMssql, listTablePostgre);
+			// 1) данные для формата строки вывода.
+			setMaxLenghtTableName(listTables);
+			setMaxCountTableVAlue(conM, MSSQLSchema);
+		 	//
+			for (int i = 0; i < listTables.size(); i++) {
+				TableInformation tableInformation = listTables.get(i);
+				Thread t = new Thread(()->{
+					try {
+						migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
+					} catch (Throwable e) {
+						throw new RuntimeException(e);
+					}
+				});
+				t.start();
+			}
+			//Thread.currentThread().w
+			LOg.INFO("------------------------------------------------------");
+			LOg.INFO("-Завершено: Всего табл.: "+listTables.size()+" шт.");
+			LOg.INFO("------------------------------------------------------");
+	}
 	
 	private static int maxLenghtTableName = 1;
 	private static int maxLenghtCountNumber = 1;
 	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection conM,PgConnection conP,String MSSQLSchema, String postgreSchema, TableInformation tableInformation) throws Throwable {
 		// TODO Auto-generated method stub
-		if(!tableInformation.getAlreadyProcessed()) {
+		if(!tableInformation.processSetting()) {
 			String tableName = tableInformation.getTableName();
 			List<String> listDepTables = getDependensiesTablesPostgreSQL(conP, postgreSchema, tableName);
 			
@@ -138,14 +168,17 @@ public class MainClass {
 	            		stmtPostgreSQL.addBatch();
 	            		rowCount++;
 	            	}
-	            	int[] res = stmtPostgreSQL.executeBatch();
-	            	tableInformation.setAlreadyProcessed(true);
-	            	Instant end = Instant.now();
-	            	int mltn=maxLenghtTableName;
-	            	int mlcn=maxLenghtCountNumber;
-	            	//
-	            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
-	            	LOg.INFO(s);
+	            	try {
+		            	int[] res = stmtPostgreSQL.executeBatch();
+		            	Instant end = Instant.now();
+		            	int mltn=maxLenghtTableName;
+		            	int mlcn=maxLenghtCountNumber;
+		            	//
+		            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
+		            	LOg.INFO(s);
+	            	} catch(java.sql.BatchUpdateException b) {
+	            		LOg.INFO("java.sql.BatchUpdateException: "+tableName);
+	            	}
 	        }
 		}
 	}
@@ -272,13 +305,42 @@ public class MainClass {
 //			 for (String s : n) {
 //				 System.out.println(getColumnNamesToList(conP, "wmwhse1", s).size()+" "+s);
 //			}
-			//System.out.println(getColumnNamesToList(conM, "wmwhse1", "LOC"));
+			List<TableInformation> ti = new ArrayList<TableInformation>();
+			for (int i = 0; i < 10; i++) {
+				ti.add(new TableInformation("zzz"+i));
+			}
+			Thread thread1 = new Thread(()->{
+				ti.get(3).processSetting();
+			});
+			Thread thread4 = new Thread(()->{
+				ti.get(3).processSetting();
+			});
+			Thread thread2 = new Thread(()->{
+				ti.get(3).processSetting();
+			});
+			Thread thread3 = new Thread(()->{
+				ti.get(3).processSetting();
+			});
+			Thread thread5 = new Thread(()->{
+				ti.get(3).processSetting();
+			});
 			
-			//System.out.println( INSERT_INTO_PostgreSQLTable("ACCESSORIAL", getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL")));
-			//System.out.println( SELECT_FROM_MSSQLTable("ACCESSORIAL", getColumnNamesToList(conP, "wmwhse1", "ACCESSORIAL")));
+			thread1.start();
+			thread2.start();
+			thread3.start();
+			thread4.start();
+			thread5.start();
+			
+//			Thread thread1 = new Thread() {
+//
+//				@Override
+//				public void run() {
+//						ti.get(3).getAlreadyProcessed();
+//				}
+//				
+//			};
 			
 			
-			//truncateAllTablePostgreSQL(conP, "wmwhse1");
 
 		
 		} catch (Exception e) {
