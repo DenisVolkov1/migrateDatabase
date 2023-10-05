@@ -21,7 +21,6 @@ import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import connection.ConnectionToDatabases;
 import connection.PropMSSQLConnection;
 import connection.PropPostgreConnection;
-import jdk.nashorn.internal.runtime.Context.ThrowErrorManager;
 import pojo.TableInformation;
 import util.LOg;
 import util.PropertiesInFile;
@@ -32,8 +31,8 @@ public class MainClass {
 	//private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
 	//private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
 	
-	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "enterprise", "sa", "sql");
-	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "enterprise", "postgres", "sql");
+	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
+	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
 	private static final int IS_ALL_SCHEMAS = Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas"));
 	
@@ -62,9 +61,11 @@ public class MainClass {
 			
 			try (SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 	           	 PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
+				//conP.setAutoCommit(false);
 				
 				if(IS_ALL_SCHEMAS == 0) {
-					 migrateTables(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
+					 //migrateTables(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
+					 migrateTables_multithread(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
 				} else {
 					List<String> schemas_MSSQL      = getAllSchemasMSSQLServer(conM);
 					List<String> schemas_PostgreSQL = getAllSchemasPostgreSQL(conP);
@@ -75,7 +76,7 @@ public class MainClass {
 							migrateTables_multithread(conM, conP, schema, schema);
 					}	
 				}
-				
+				//conP.commit();
 				Instant end = Instant.now();
 				LOg.INFO("------------------------------------------------------");
 				long sec = Duration.between(start, end).getSeconds();
@@ -114,17 +115,26 @@ public class MainClass {
 			setMaxLenghtTableName(listTables);
 			setMaxCountTableVAlue(conM, MSSQLSchema);
 		 	//
-			for (int i = 0; i < listTables.size(); i++) {
-				TableInformation tableInformation = listTables.get(i);
-				Thread t = new Thread(()->{
-					try {
-						migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
-					} catch (Throwable e) {
-						throw new RuntimeException(e);
-					}
-				});
-				t.start();
-			}
+			List<Thread> allThread = new ArrayList<Thread>();// Потоки для обработки каждой табл.
+			Thread startThreads = new Thread(()->{ // Поток запуска который запускает все потоки
+				for (int i = 0; i < listTables.size(); i++) {
+					TableInformation tableInformation = listTables.get(i);
+					Thread t = new Thread(()->{// Рабочий поток на каждую таблицу из списка
+						try {
+							migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
+						} catch (Throwable e) {
+							throw new RuntimeException(e);
+						}
+					});
+					allThread.add(t);
+					t.start();
+				}
+			});
+			startThreads.start();
+			startThreads.join();// Ждём когда отработает поток по запуску всех потоков
+			for (Thread t : allThread) t.join();// Ждём все потоки
+
+			
 			//Thread.currentThread().w
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("-Завершено: Всего табл.: "+listTables.size()+" шт.");
@@ -176,8 +186,8 @@ public class MainClass {
 		            	//
 		            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
 		            	LOg.INFO(s);
-	            	} catch(java.sql.BatchUpdateException b) {
-	            		LOg.INFO("java.sql.BatchUpdateException: "+tableName);
+	            	} catch(Throwable t) {
+	            		LOg.INFO("err: "+tableName+" "+t.getMessage());
 	            	}
 	        }
 		}
