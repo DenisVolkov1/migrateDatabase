@@ -18,9 +18,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.postgresql.jdbc.PgConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+
 import connection.ConnectionToDatabases;
 import connection.PropMSSQLConnection;
 import connection.PropPostgreConnection;
+import jdk.internal.net.http.common.Log;
 import pojo.TableInformation;
 import util.LOg;
 import util.PropertiesInFile;
@@ -28,11 +30,11 @@ import static mappings.MappingTypes.*;
 
 public class MainClass {
 	
-	//private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
-	//private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
+	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
+	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
 	
-	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
-	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
+	//private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
+	//private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
 	private static final int IS_ALL_SCHEMAS = Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas"));
 	
@@ -60,9 +62,10 @@ public class MainClass {
 			LOg.INFO("------------------------------------------------------");
 			
 			try (SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
-	           	 PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
-				//conP.setAutoCommit(false);
-				
+	           	 		PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
+				//Инит бассеин: на 1000 соединений
+				ConnectionToDatabases.initPool(PROP_MSSQL, PROP_POSTGRES);
+				//
 				if(IS_ALL_SCHEMAS == 0) {
 					 //migrateTables(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
 					 migrateTables_multithread(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
@@ -76,7 +79,7 @@ public class MainClass {
 							migrateTables_multithread(conM, conP, schema, schema);
 					}	
 				}
-				//conP.commit();
+				
 				Instant end = Instant.now();
 				LOg.INFO("------------------------------------------------------");
 				long sec = Duration.between(start, end).getSeconds();
@@ -99,11 +102,14 @@ public class MainClass {
 			for (int i = 0; i < listTables.size(); i++) {
 				TableInformation tableInformation = listTables.get(i);
 					migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
+					migrateTable_FromMSSQLToPosgreSQL_pool_connection(MSSQLSchema, postgreSchema, tableInformation);
 			}
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("-Завершено: Всего табл.: "+listTables.size()+" шт.");
 			LOg.INFO("------------------------------------------------------");
 	}
+
+
 	private static void migrateTables_multithread(SQLServerConnection conM, PgConnection conP,String MSSQLSchema, String postgreSchema) throws Throwable {
 		// Транкейтим данные на PosygreSQL для данной схемы.
 		truncateAllTablePostgreSQL(conP, postgreSchema);
@@ -121,8 +127,10 @@ public class MainClass {
 					TableInformation tableInformation = listTables.get(i);
 					Thread t = new Thread(()->{// Рабочий поток на каждую таблицу из списка
 						try {
-							migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
+							//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
+							migrateTable_FromMSSQLToPosgreSQL_pool_connection(MSSQLSchema, postgreSchema, tableInformation);
 						} catch (Throwable e) {
+							//Log.ERRORS()
 							throw new RuntimeException(e);
 						}
 					});
@@ -133,7 +141,8 @@ public class MainClass {
 			startThreads.start();
 			startThreads.join();// Ждём когда отработает поток по запуску всех потоков
 			for (Thread t : allThread) t.join();// Ждём все потоки
-
+			// закрываем все соединения
+			ConnectionToDatabases.closePools();
 			
 			//Thread.currentThread().w
 			LOg.INFO("------------------------------------------------------");
@@ -141,18 +150,30 @@ public class MainClass {
 			LOg.INFO("------------------------------------------------------");
 	}
 	
+	private static void migrateTable_FromMSSQLToPosgreSQL_pool_connection(String mSSQLSchema, String postgreSchema,TableInformation tableInformation) throws Throwable {
+		
+		SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer_FromPool(); 
+       	PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL_FromPool();
+			
+			migrateTable_FromMSSQLToPosgreSQL(conM, conP, postgreSchema, postgreSchema, tableInformation);
+		
+			ConnectionToDatabases.returnConnectionInPool(conP,conM);
+	}
+	
 	private static int maxLenghtTableName = 1;
 	private static int maxLenghtCountNumber = 1;
 	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection conM,PgConnection conP,String MSSQLSchema, String postgreSchema, TableInformation tableInformation) throws Throwable {
-		// TODO Auto-generated method stub
+		
 		if(!tableInformation.processSetting()) {
+			
 			String tableName = tableInformation.getTableName();
 			List<String> listDepTables = getDependensiesTablesPostgreSQL(conP, postgreSchema, tableName);
 			
 			for (int i = 0; i < listDepTables.size(); i++) {
 				TableInformation ti = getTableInformation(listDepTables.get(i));
-				//System.out.println("ti ="+ti);
-				migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, ti);
+				
+				//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, ti);
+				migrateTable_FromMSSQLToPosgreSQL_pool_connection(MSSQLSchema, postgreSchema, tableInformation);
 			}
 			
 			List<String> columnNames_MSSQLTable      = getColumnNamesToList(conM,        MSSQLSchema, tableName);
