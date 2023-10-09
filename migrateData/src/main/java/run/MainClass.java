@@ -22,7 +22,6 @@ import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 import connection.ConnectionToDatabases;
 import connection.PropMSSQLConnection;
 import connection.PropPostgreConnection;
-import jdk.internal.net.http.common.Log;
 import pojo.TableInformation;
 import util.LOg;
 import util.PropertiesInFile;
@@ -30,20 +29,19 @@ import static mappings.MappingTypes.*;
 
 public class MainClass {
 	
-	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
-	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
+	//private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
+	//private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
 	
-	//private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
-	//private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
+	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
+	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
 	private static final int IS_ALL_SCHEMAS = Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas"));
 	
 	private static List<TableInformation> listTables;
 	
 	public static void main(String[] args) {
-		
-	runMain();
-		//debug();
+		runMain();
+			//debug();
 	}
 
 	private static void runMain() {
@@ -130,8 +128,8 @@ public class MainClass {
 							//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
 							migrateTable_FromMSSQLToPosgreSQL_pool_connection(MSSQLSchema, postgreSchema, tableInformation);
 						} catch (Throwable e) {
-							//Log.ERRORS()
-							throw new RuntimeException(e);
+							LOg.INFO("ERR: "+e.getMessage());
+							//throw new RuntimeException(e);
 						}
 					});
 					allThread.add(t);
@@ -206,9 +204,9 @@ public class MainClass {
 		            	int mlcn=maxLenghtCountNumber;
 		            	//
 		            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
-		            	LOg.INFO(s);
+		            	//LOg.INFO(s);
 	            	} catch(Throwable t) {
-	            		LOg.INFO("err: "+tableName+" "+t.getMessage());
+	            		LOg.INFO("ERR: "+tableName+" "+t.getMessage());
 	            	}
 	        }
 		}
