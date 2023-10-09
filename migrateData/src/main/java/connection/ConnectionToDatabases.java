@@ -3,18 +3,19 @@ package connection;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Iterator;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-
 import org.postgresql.jdbc.PgConnection;
-import org.postgresql.shaded.com.ongres.scram.common.bouncycastle.pbkdf2.RuntimeCryptoException;
-
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
+
+import pojo.TableInformation;
+import pojo.TableInformation.QuantitativeRange;
 
 public class ConnectionToDatabases {
 	
 	private static boolean isInitPool;
+	private static com.microsoft.sqlserver.jdbc.SQLServerConnection less_than_1000_mssql;
+	private static org.postgresql.jdbc.PgConnection less_than_1000_postgres;
+	//
 	private static ConcurrentLinkedQueue<com.microsoft.sqlserver.jdbc.SQLServerConnection> blockingQueue_MSSQL ;
 	private static ConcurrentLinkedQueue<org.postgresql.jdbc.PgConnection> blockingQueue_POSTGRES ;
 	private static PropMSSQLConnection pMssql_;
@@ -37,33 +38,52 @@ public class ConnectionToDatabases {
 	}
 	
 	
-	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer_FromPool() throws InterruptedException, SQLException {
-		
-		return (SQLServerConnection) getConnection_FromPool(com.microsoft.sqlserver.jdbc.SQLServerConnection.class);
+	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException {
+		QuantitativeRange range = tableInformation.getRange();
+		return (SQLServerConnection) getConnection_FromPool(com.microsoft.sqlserver.jdbc.SQLServerConnection.class, range);
 	}
 	
-	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL_FromPool() throws InterruptedException, SQLException {
-		
-		return (PgConnection) getConnection_FromPool(org.postgresql.jdbc.PgConnection.class);
+	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException {
+		QuantitativeRange range = tableInformation.getRange();
+		return (PgConnection) getConnection_FromPool(org.postgresql.jdbc.PgConnection.class, range);
 	}
 
-	private static <T extends Connection> Connection getConnection_FromPool(Class<T> t) throws InterruptedException, SQLException {
+	@SuppressWarnings("resource")
+	private static <T extends Connection> Connection getConnection_FromPool(Class<T> t,QuantitativeRange range) throws InterruptedException, SQLException {
 		if(!(isInitPool)) throw new RuntimeException("Pool is not init!");
 		if(org.postgresql.jdbc.PgConnection.class != t && com.microsoft.sqlserver.jdbc.SQLServerConnection.class != t) throw new RuntimeException("Unrecognize connection class !!!");
+		// Получить соединение для таблиц с 0 кол-вом строк.
+		
+		//
 		long timeOut =0;
 		Connection con = null;
 		do {
 			if(com.microsoft.sqlserver.jdbc.SQLServerConnection.class == t) {
 				//System.out.println("timeOut:"+timeOut+" -MSSQL="+blockingQueue_MSSQL.size());
-				con=  blockingQueue_MSSQL.poll();
+				switch (range) {
+					case LESS_THAN_1000 : 
+						con= less_than_1000_mssql;
+						break;
+					case MORE_THAN_1000 :
+						con= blockingQueue_MSSQL.poll();
+						break;
+					default : con= blockingQueue_MSSQL.poll();
+				}
 			}
 			
 			if(org.postgresql.jdbc.PgConnection.class == t) {
-				//System.out.println("timeOut:"+timeOut+" -PostgreSQL="+blockingQueue_POSTGRES.size());
-				con= blockingQueue_POSTGRES.poll();
+				switch (range) {
+					case LESS_THAN_1000 : 
+						con= less_than_1000_postgres;
+						break;
+					case MORE_THAN_1000 :
+						con= blockingQueue_POSTGRES.poll();
+						break;
+					default : con= blockingQueue_POSTGRES.poll();
+				}	
 			}
 			if(con == null) {
-				Thread.sleep(500);
+				Thread.sleep(500);// ждём свободное соединение
 				timeOut+=500;
 			}
 		} while (con == null && timeOut <= 3000);
@@ -76,6 +96,9 @@ public class ConnectionToDatabases {
 	}
 
 	public static void returnConnectionInPool(Connection con) {
+		if(con == null) throw new RuntimeException("Connection is NULL!");
+		if(con == less_than_1000_mssql || con == less_than_1000_postgres) return;
+		
 		if(con instanceof com.microsoft.sqlserver.jdbc.SQLServerConnection) blockingQueue_MSSQL.add((SQLServerConnection) con); 
 		if(con instanceof org.postgresql.jdbc.PgConnection) blockingQueue_POSTGRES.add((PgConnection) con); 
 	}
@@ -92,6 +115,9 @@ public class ConnectionToDatabases {
 		pMssql_ = pMssql; 
 		pPostgres_ = pPostgres;
 		
+		less_than_1000_mssql = getConnectionToMSSqlServer(pMssql);
+		less_than_1000_postgres = getConnectionToPostgreSQL(pPostgres);
+		
 		blockingQueue_MSSQL = new ConcurrentLinkedQueue<SQLServerConnection>();
 		for (int i = 0; i < poolSize; i++) {
 			blockingQueue_MSSQL.add(getConnectionToMSSqlServer(pMssql));
@@ -101,6 +127,7 @@ public class ConnectionToDatabases {
 		for (int i = 0; i < poolSize; i++) {
 			blockingQueue_POSTGRES.add(getConnectionToPostgreSQL(pPostgres));
 		}
+		System.out.println("-------------------");
 		System.out.println("InitPool: is ready!");
 		isInitPool=true;
 	}
@@ -112,6 +139,8 @@ public class ConnectionToDatabases {
 		for (PgConnection pgConnection : blockingQueue_POSTGRES) {
 			if(!(pgConnection.isClosed())) pgConnection.close();
 		}
+		if(!(less_than_1000_mssql.isClosed())) less_than_1000_mssql.close();
+		if(!(less_than_1000_postgres.isClosed())) less_than_1000_mssql.close();
 	}
 
 }

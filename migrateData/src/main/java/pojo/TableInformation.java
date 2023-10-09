@@ -4,7 +4,12 @@ public class TableInformation {
 	
 	private String tableName;
 	private Boolean alreadyProcessing=false;
+	private int totalRows = 0;
 	
+	public enum QuantitativeRange {		
+		LESS_THAN_1000,
+		MORE_THAN_1000
+	}
 	public TableInformation(String tableName) {
 		super();
 		this.tableName = tableName;
@@ -14,7 +19,7 @@ public class TableInformation {
 		return alreadyProcessing;
 	}
 	
-	public synchronized Boolean processSetting() {
+	public synchronized Boolean inProcess() {
 		//System.out.println(Thread.currentThread().getName()+" alreadyProcessed "+alreadyProcessing);
 		if(alreadyProcessing == false) {
 			alreadyProcessing = true;
@@ -70,6 +75,22 @@ public class TableInformation {
 		return true;
 	}
 
+	public int getTotalRows() {
+		return totalRows;
+	}
 
+	public void setTotalRows(int totalRows) {
+		this.totalRows = totalRows;
+	}
 
+	public boolean isEmpty() {
+		return (getTotalRows() == 0 ? true : false);
+	}
+	
+	public QuantitativeRange getRange() {
+		if(getTotalRows() > 1 && getTotalRows() <= 1000) {
+			return TableInformation.QuantitativeRange.LESS_THAN_1000;
+		}
+		return TableInformation.QuantitativeRange.MORE_THAN_1000;
+	}
 }

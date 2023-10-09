@@ -1,6 +1,5 @@
 package run;
 
-import java.lang.Thread.UncaughtExceptionHandler;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -12,9 +11,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.postgresql.jdbc.PgConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
@@ -25,6 +25,8 @@ import connection.PropPostgreConnection;
 import pojo.TableInformation;
 import util.LOg;
 import util.PropertiesInFile;
+import util.Util;
+
 import static mappings.MappingTypes.*;
 
 public class MainClass {
@@ -35,9 +37,11 @@ public class MainClass {
 	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
 	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
-	private static final int IS_ALL_SCHEMAS = Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas"));
+	private static final boolean IS_ALL_SCHEMAS = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas")));
+	private static final boolean IS_USE_MULTITHREAD = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
 	
 	private static List<TableInformation> listTables;
+	private static Map<String, Integer> totalCountMssqlTable;
 	
 	public static void main(String[] args) {
 		runMain();
@@ -61,21 +65,21 @@ public class MainClass {
 			
 			try (SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 	           	 		PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
-				//Инит бассеин: на 1000 соединений
+				//Инит бассеин
 				ConnectionToDatabases.initPool(PROP_MSSQL, PROP_POSTGRES);
 				//
-				if(IS_ALL_SCHEMAS == 0) {
-					 //migrateTables(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
-					 migrateTables_multithread(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
-				} else {
+				if(IS_ALL_SCHEMAS) {				 
 					List<String> schemas_MSSQL      = getAllSchemasMSSQLServer(conM);
 					List<String> schemas_PostgreSQL = getAllSchemasPostgreSQL(conP);
 					List<String> schemas = intersectionOfLists(schemas_MSSQL, schemas_PostgreSQL);
 					for (int i = 0; i < schemas.size(); i++) {
-						String schema = schemas.get(i);
-							//migrateTables(conM, conP, schema, schema);
-							migrateTables_multithread(conM, conP, schema, schema);
+						String schema = schemas.get(i);				
+						if(IS_USE_MULTITHREAD) migrateTables_multithread(conM, conP, schema, schema);
+						migrateTables(conM, conP, schema, schema);
 					}	
+				} else {
+					 if(IS_USE_MULTITHREAD) migrateTables_multithread(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
+					 else migrateTables(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
 				}
 				
 				Instant end = Instant.now();
@@ -99,8 +103,8 @@ public class MainClass {
 		 	//
 			for (int i = 0; i < listTables.size(); i++) {
 				TableInformation tableInformation = listTables.get(i);
-					migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
-					migrateTable_FromMSSQLToPosgreSQL_pool_connection(MSSQLSchema, postgreSchema, tableInformation);
+					//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
+					migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
 			}
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("-Завершено: Всего табл.: "+listTables.size()+" шт.");
@@ -115,6 +119,8 @@ public class MainClass {
 			List<TableInformation> listTableMssql = getAllTableNames(conM, MSSQLSchema);
 			List<TableInformation> listTablePostgre = getAllTableNames(conP, postgreSchema);
 			listTables = intersectionOf_TableInformation_Lists(listTableMssql, listTablePostgre);
+			// уст. знач число строк в каждой табл.
+			setTotalRowsInTables(conM,MSSQLSchema,listTables);
 			// 1) данные для формата строки вывода.
 			setMaxLenghtTableName(listTables);
 			setMaxCountTableVAlue(conM, MSSQLSchema);
@@ -125,8 +131,7 @@ public class MainClass {
 					TableInformation tableInformation = listTables.get(i);
 					Thread t = new Thread(()->{// Рабочий поток на каждую таблицу из списка
 						try {
-							//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
-							migrateTable_FromMSSQLToPosgreSQL_pool_connection(MSSQLSchema, postgreSchema, tableInformation);
+							migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
 						} catch (Throwable e) {
 							LOg.INFO("ERR: "+e.getMessage());
 							//throw new RuntimeException(e);
@@ -148,30 +153,34 @@ public class MainClass {
 			LOg.INFO("------------------------------------------------------");
 	}
 	
-	private static void migrateTable_FromMSSQLToPosgreSQL_pool_connection(String mSSQLSchema, String postgreSchema,TableInformation tableInformation) throws Throwable {
+	private static void setTotalRowsInTables(SQLServerConnection conM,String schema,List<TableInformation> _listTables) throws SQLException {
+		totalCountMssqlTable = getMapTotalCountMssqlTable(conM, schema);
 		
-		SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer_FromPool(); 
-       	PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL_FromPool();
-			
-			migrateTable_FromMSSQLToPosgreSQL(conM, conP, postgreSchema, postgreSchema, tableInformation);
-		
-			ConnectionToDatabases.returnConnectionInPool(conP,conM);
+		for (int i = 0; i < _listTables.size(); i++) {
+			String nameTable = listTables.get(i).getTableName();
+			int countRows = totalCountMssqlTable.get(nameTable);
+				listTables.get(i).setTotalRows(countRows);
+		}
 	}
 	
 	private static int maxLenghtTableName = 1;
 	private static int maxLenghtCountNumber = 1;
-	private static void migrateTable_FromMSSQLToPosgreSQL(SQLServerConnection conM,PgConnection conP,String MSSQLSchema, String postgreSchema, TableInformation tableInformation) throws Throwable {
+	private static void migrateTable_FromMSSQLToPosgreSQL(String MSSQLSchema, String postgreSchema, TableInformation tableInformation) throws Throwable {
 		
-		if(!tableInformation.processSetting()) {
+		if(!(tableInformation.isEmpty()) & !(tableInformation.inProcess())) {
+			
+			SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer_FromPool(tableInformation); 
+	       	PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL_FromPool(tableInformation);
+			
 			
 			String tableName = tableInformation.getTableName();
 			List<String> listDepTables = getDependensiesTablesPostgreSQL(conP, postgreSchema, tableName);
 			
 			for (int i = 0; i < listDepTables.size(); i++) {
-				TableInformation ti = getTableInformation(listDepTables.get(i));
+				TableInformation tiDepTables = getTableInformation(listDepTables.get(i));
 				
 				//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, ti);
-				migrateTable_FromMSSQLToPosgreSQL_pool_connection(MSSQLSchema, postgreSchema, tableInformation);
+				migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
 			}
 			
 			List<String> columnNames_MSSQLTable      = getColumnNamesToList(conM,        MSSQLSchema, tableName);
@@ -209,6 +218,8 @@ public class MainClass {
 	            		LOg.INFO("ERR: "+tableName+" "+t.getMessage());
 	            	}
 	        }
+	        
+	        ConnectionToDatabases.returnConnectionInPool(conP,conM);
 		}
 	}
 	
@@ -339,19 +350,19 @@ public class MainClass {
 				ti.add(new TableInformation("zzz"+i));
 			}
 			Thread thread1 = new Thread(()->{
-				ti.get(3).processSetting();
+				ti.get(3).inProcess();
 			});
 			Thread thread4 = new Thread(()->{
-				ti.get(3).processSetting();
+				ti.get(3).inProcess();
 			});
 			Thread thread2 = new Thread(()->{
-				ti.get(3).processSetting();
+				ti.get(3).inProcess();
 			});
 			Thread thread3 = new Thread(()->{
-				ti.get(3).processSetting();
+				ti.get(3).inProcess();
 			});
 			Thread thread5 = new Thread(()->{
-				ti.get(3).processSetting();
+				ti.get(3).inProcess();
 			});
 			
 			thread1.start();
@@ -440,6 +451,27 @@ public class MainClass {
 		
 	        while(rs.next()){
 	        	res = rs.getInt(1);
+	        }
+		}
+		return res;
+	}
+	private static Map<String,Integer> getMapTotalCountMssqlTable(SQLServerConnection conM,String schema) throws SQLException {
+		Map<String,Integer> res= new HashMap<String, Integer>();
+		String SQL = ""
+				+ "SELECT LOWER(t.name) [table] ,s.row_count "
+				+ "FROM   sys.tables t "
+				+ "JOIN   sys.dm_db_partition_stats s"
+				+ "  ON t.OBJECT_ID = s.OBJECT_ID "
+				+ " AND t.type_desc = 'USER_TABLE' "
+				+ " AND SCHEMA_NAME ([schema_id]) = ? "
+				+ " AND s.index_id IN (0, 1);";
+		
+		try (PreparedStatement stmt = conM.prepareStatement(SQL);){
+	           stmt.setString(1, schema);
+	           ResultSet rs = stmt.executeQuery();
+		
+	        while(rs.next()){
+	        	res.put(rs.getString("table"), rs.getInt("row_count"));
 	        }
 		}
 		return res;
