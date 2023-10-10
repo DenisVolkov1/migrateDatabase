@@ -37,7 +37,7 @@ public class MainClass {
 	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
 	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
-	private static boolean IS_ALL_SCHEMAS = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas")));
+	private static boolean IS_ALL_SCHEMAS =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas")));
 	private static boolean IS_USE_MULTITHREAD =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
 	
 	private static List<TableInformation> listTables;
@@ -55,6 +55,9 @@ public class MainClass {
 			
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("INFO :: "+new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(Calendar.getInstance().getTime())+" :::START:::");
+			LOg.INFO("------------------------------------------------------");
+			LOg.INFO("-    PROP_MSSQL = " + PROP_MSSQL);
+			LOg.INFO("- PROP_POSTGRES = " + PROP_POSTGRES);
 			LOg.INFO("------------------------------------------------------");
 			try (final Connection conM = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 					final Connection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {

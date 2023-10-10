@@ -55,6 +55,8 @@ public class PropertiesInFile {
 	        prop.setProperty("password_postgre", "<password_postgre>");
 	        // Extra props
 	        prop.setProperty("is_use_all_schemas", "0");
+	        prop.setProperty("is_use_multithread", "0");
+	        prop.setProperty("is_enabled_connection_pool", "0");
 
 
 	        // save properties to project root folder
