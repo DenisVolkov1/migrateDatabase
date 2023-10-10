@@ -188,9 +188,10 @@ public class MainClass {
 		        String insertPostgreSQLTable = INSERT_INTO_PostgreSQLTable(postgreSchema,tableName,columnNames);
 		        
 	        try (PreparedStatement stmtMSSql = conM.prepareStatement(selectMSSQLTable); 
-	        		PreparedStatement stmtPostgreSQL = conP.prepareStatement(insertPostgreSQLTable);) {
-	            ResultSet rsMSSql = stmtMSSql.executeQuery();
-	            ResultSetMetaData rsmd=rsMSSql.getMetaData();	            
+	        		PreparedStatement stmtPostgreSQL = conP.prepareStatement(insertPostgreSQLTable);
+	        			ResultSet rsMSSql = stmtMSSql.executeQuery();) {
+	
+	            ResultSetMetaData rsmd=rsMSSql.getMetaData();
 	            
 	            int rowCount = 0;
 	            Instant start = Instant.now();
