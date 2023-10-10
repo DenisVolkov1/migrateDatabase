@@ -37,8 +37,8 @@ public class MainClass {
 	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
 	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
-	private static final boolean IS_ALL_SCHEMAS = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas")));
-	private static final boolean IS_USE_MULTITHREAD = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
+	private static boolean IS_ALL_SCHEMAS = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas")));
+	private static boolean IS_USE_MULTITHREAD =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
 	
 	private static List<TableInformation> listTables;
 	private static Map<String, Integer> totalCountMssqlTable;
@@ -103,7 +103,6 @@ public class MainClass {
 		 	//
 			for (int i = 0; i < listTables.size(); i++) {
 				TableInformation tableInformation = listTables.get(i);
-					//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, tableInformation);
 					migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
 			}
 			LOg.INFO("------------------------------------------------------");
@@ -178,9 +177,7 @@ public class MainClass {
 			
 			for (int i = 0; i < listDepTables.size(); i++) {
 				TableInformation tiDepTables = getTableInformation(listDepTables.get(i));
-				
-				//migrateTable_FromMSSQLToPosgreSQL(conM, conP, MSSQLSchema, postgreSchema, ti);
-				migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
+					migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tiDepTables);
 			}
 			
 			List<String> columnNames_MSSQLTable      = getColumnNamesToList(conM,        MSSQLSchema, tableName);
@@ -213,7 +210,7 @@ public class MainClass {
 		            	int mlcn=maxLenghtCountNumber;
 		            	//
 		            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,printTime(Duration.between(start, end).getSeconds()));
-		            	//LOg.INFO(s);
+		            	LOg.INFO(s);
 	            	} catch(Throwable t) {
 	            		LOg.INFO("ERR: "+tableName+" "+t.getMessage());
 	            	}
@@ -334,6 +331,8 @@ public class MainClass {
 	}
 	
 	private static void debug() {
+		String MSSQLSchema = "wmwhse1";
+		String postgreSchema = "wmwhse1";
 		try (SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); Statement stmtM = conM.createStatement();
 				PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES); Statement stmtP = conP.createStatement();){
 			 //ResultSet rsM = stmtM.executeQuery(q);
@@ -345,41 +344,12 @@ public class MainClass {
 //			 for (String s : n) {
 //				 System.out.println(getColumnNamesToList(conP, "wmwhse1", s).size()+" "+s);
 //			}
-			List<TableInformation> ti = new ArrayList<TableInformation>();
-			for (int i = 0; i < 10; i++) {
-				ti.add(new TableInformation("zzz"+i));
-			}
-			Thread thread1 = new Thread(()->{
-				ti.get(3).inProcess();
-			});
-			Thread thread4 = new Thread(()->{
-				ti.get(3).inProcess();
-			});
-			Thread thread2 = new Thread(()->{
-				ti.get(3).inProcess();
-			});
-			Thread thread3 = new Thread(()->{
-				ti.get(3).inProcess();
-			});
-			Thread thread5 = new Thread(()->{
-				ti.get(3).inProcess();
-			});
-			
-			thread1.start();
-			thread2.start();
-			thread3.start();
-			thread4.start();
-			thread5.start();
-			
-//			Thread thread1 = new Thread() {
-//
-//				@Override
-//				public void run() {
-//						ti.get(3).getAlreadyProcessed();
-//				}
-//				
-//			};
-			
+			List<TableInformation> listTableMssql = getAllTableNames(conM, MSSQLSchema);
+			List<TableInformation> listTablePostgre = getAllTableNames(conP, postgreSchema);
+			listTables = intersectionOf_TableInformation_Lists(listTableMssql, listTablePostgre);
+			// уст. знач число строк в каждой табл.
+			setTotalRowsInTables(conM,MSSQLSchema,listTables);
+			System.out.println(listTableMssql);
 			
 
 		

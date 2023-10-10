@@ -39,21 +39,19 @@ public class ConnectionToDatabases {
 	
 	
 	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException {
-		QuantitativeRange range = tableInformation.getRange();
-		return (SQLServerConnection) getConnection_FromPool(com.microsoft.sqlserver.jdbc.SQLServerConnection.class, range);
+		return (SQLServerConnection) getConnection_FromPool(com.microsoft.sqlserver.jdbc.SQLServerConnection.class, tableInformation);
 	}
 	
 	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException {
-		QuantitativeRange range = tableInformation.getRange();
-		return (PgConnection) getConnection_FromPool(org.postgresql.jdbc.PgConnection.class, range);
+		return (PgConnection) getConnection_FromPool(org.postgresql.jdbc.PgConnection.class, tableInformation);
 	}
 
 	@SuppressWarnings("resource")
-	private static <T extends Connection> Connection getConnection_FromPool(Class<T> t,QuantitativeRange range) throws InterruptedException, SQLException {
+	private static <T extends Connection> Connection getConnection_FromPool(Class<T> t,TableInformation tableInformation) throws InterruptedException, SQLException {
 		if(!(isInitPool)) throw new RuntimeException("Pool is not init!");
 		if(org.postgresql.jdbc.PgConnection.class != t && com.microsoft.sqlserver.jdbc.SQLServerConnection.class != t) throw new RuntimeException("Unrecognize connection class !!!");
-		// Получить соединение для таблиц с 0 кол-вом строк.
-		
+		// Получить диапазон строк таблицы
+		QuantitativeRange range = tableInformation.getRange();
 		//
 		long timeOut =0;
 		Connection con = null;
@@ -96,7 +94,7 @@ public class ConnectionToDatabases {
 	}
 
 	public static void returnConnectionInPool(Connection con) {
-		if(con == null) throw new RuntimeException("Connection is NULL!");
+		if(con == null) throw new RuntimeException("Returned connection is NULL!");
 		if(con == less_than_1000_mssql || con == less_than_1000_postgres) return;
 		
 		if(con instanceof com.microsoft.sqlserver.jdbc.SQLServerConnection) blockingQueue_MSSQL.add((SQLServerConnection) con); 

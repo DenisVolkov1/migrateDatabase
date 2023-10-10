@@ -47,7 +47,8 @@ public class TableInformation {
 
 	@Override
 	public String toString() {
-		return "TableInformation [tableName=" + tableName + ", alreadyProcessed=" + alreadyProcessing + "]";
+		return "TableInformation [tableName=" + tableName + ", alreadyProcessing=" + alreadyProcessing + ", totalRows="
+				+ totalRows + "]\n";
 	}
 
 	@Override
@@ -88,7 +89,7 @@ public class TableInformation {
 	}
 	
 	public QuantitativeRange getRange() {
-		if(getTotalRows() > 1 && getTotalRows() <= 1000) {
+		if(getTotalRows() >= 1 && getTotalRows() <= 1000) {
 			return TableInformation.QuantitativeRange.LESS_THAN_1000;
 		}
 		return TableInformation.QuantitativeRange.MORE_THAN_1000;
