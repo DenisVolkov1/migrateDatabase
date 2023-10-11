@@ -1,4 +1,4 @@
-package mappings;
+package util;
 
 public class MappingTypes {
 	

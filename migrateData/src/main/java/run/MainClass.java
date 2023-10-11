@@ -1,5 +1,7 @@
 package run;
 
+import static util.MappingTypes.*;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -15,6 +17,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 import org.postgresql.jdbc.PgConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
@@ -26,8 +29,6 @@ import pojo.TableInformation;
 import util.LOg;
 import util.PropertiesInFile;
 import util.Util;
-
-import static mappings.MappingTypes.*;
 
 public class MainClass {
 	
@@ -126,14 +127,24 @@ public class MainClass {
 			// 1) данные для формата строки вывода.
 			setMaxLenghtTableName(listTables);
 			setMaxCountTableVAlue(conM, MSSQLSchema);
+			
+			final int numberOfThreads = (listTables.size() / 10) + 1;
+			//final int numberOfThreads = listTables.size();
+			//
+			ConcurrentLinkedQueue<TableInformation> linkedQueueTables = new ConcurrentLinkedQueue<TableInformation>(listTables);
+			final int loopMax = 10;
 		 	//
 			List<Thread> allThread = new ArrayList<Thread>();// Потоки для обработки каждой табл.
 			Thread startThreads = new Thread(()->{ // Поток запуска который запускает все потоки
-				for (int i = 0; i < listTables.size(); i++) {
-					TableInformation tableInformation = listTables.get(i);
+				for (int i = 0; i < numberOfThreads; i++) {
+					//TableInformation tableInformation = listTables.get(i);
 					Thread t = new Thread(()->{// Рабочий поток на каждую таблицу из списка
 						try {
-							migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
+							for (int j = 0; j < loopMax; j++) {
+								TableInformation tableInformation = linkedQueueTables.poll();
+								if(tableInformation == null) break;
+									migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
+							}		
 						} catch (Throwable e) {
 							LOg.INFO("ERR: "+e.getMessage());
 							//throw new RuntimeException(e);
