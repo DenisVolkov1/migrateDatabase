@@ -3,12 +3,15 @@ package connection;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.postgresql.jdbc.PgConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 
 import pojo.TableInformation;
 import pojo.TableInformation.QuantitativeRange;
+import util.LOg;
 import util.PropertiesInFile;
 import util.Util;
 import static connection.ConObj.*;
@@ -54,9 +57,6 @@ public class ConnectionToDatabases {
 	private static <T extends Connection> Connection getConnection(ConObj co,TableInformation tableInformation) throws InterruptedException, SQLException {
 		if(!(isInitPool)) throw new RuntimeException("Pool is not init!");
 		if(MSSQL_SERVER != co && POSTGRESQL != co) throw new RuntimeException("Unrecognize connection class !!!");
-		// Получить диапазон строк таблицы
-		//QuantitativeRange range = tableInformation.getRange();
-		//
 		
 		long timeOut =0;
 		Connection con = null;
@@ -64,7 +64,6 @@ public class ConnectionToDatabases {
 		if(IS_ENABLED_CONNECTION_POOL) {
 			do {
 				if(MSSQL_SERVER == co) {
-					//System.out.println("timeOut:"+timeOut+" -MSSQL="+blockingQueue_MSSQL.size());
 					con= blockingQueue_MSSQL.poll();
 				}else if(POSTGRESQL == co) {
 					con= blockingQueue_POSTGRES.poll();
@@ -74,7 +73,6 @@ public class ConnectionToDatabases {
 					timeOut+=500;
 				}
 			} while (con == null && timeOut <= 1000);
-			//System.out.println("timeOut:"+timeOut+" -MSSQL="+blockingQueue_MSSQL.size()+" -PostgreSQL="+blockingQueue_POSTGRES.size());
 			if(con == null) {
 				if(MSSQL_SERVER == co)    return getConnectionToMSSqlServer(pMssql_);
 				else if(POSTGRESQL == co) return getConnectionToPostgreSQL(pPostgres_);
@@ -102,6 +100,8 @@ public class ConnectionToDatabases {
 	
 	public static void initPool(PropMSSQLConnection pMssql, PropPostgreConnection pPostgres) throws InterruptedException, SQLException {
 		if(isInitPool) throw new RuntimeException("Pool is init arlready!");
+		
+		Instant start = Instant.now();
 		int poolSize =30;
 		pMssql_ = pMssql; 
 		pPostgres_ = pPostgres;
@@ -118,9 +118,12 @@ public class ConnectionToDatabases {
 		for (int i = 0; i < poolSize; i++) {
 			blockingQueue_POSTGRES.add(getConnectionToPostgreSQL(pPostgres));
 		}
-		System.out.println("-------------------");
-		System.out.println("InitPool: is ready!");
-		System.out.println("-------------------");
+		Instant end = Instant.now();
+		long sec = Duration.between(start, end).getSeconds();
+
+		LOg.INFO("-------------------");
+		LOg.INFO("InitPool: Готово Заняло: "+Util.printTime(sec));
+		LOg.INFO("-------------------");
 		isInitPool=true;
 	}
 	
