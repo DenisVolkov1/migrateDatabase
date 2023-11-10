@@ -117,6 +117,8 @@ public class MainClass {
 				LOg.INFO("------------------------------------------------------");
 				return;
 			}
+			// уст. знач число строк в каждой табл.
+			setTotalRowsInTables(conM,MSSQLSchema,listTables);
 			// 1) данные для формата строки вывода.
 			setMaxLenghtTableName(listTables);
 			setMaxCountTableVAlue(conM, MSSQLSchema);
@@ -169,7 +171,6 @@ public class MainClass {
 							}		
 						} catch (Throwable e) {
 							LOg.ERROR(e);
-							throw new RuntimeException(e);
 						}
 					});
 					allThread.add(t);
@@ -200,7 +201,7 @@ public class MainClass {
 	private static void migrateTable_FromMSSQLToPosgreSQL(String MSSQLSchema, String postgreSchema, TableInformation tableInformation) throws Throwable {
 		
 		if(!(tableInformation.isEmpty()) & !(tableInformation.inProcess())) {
-			
+				
 			SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer_FromPool(tableInformation); 
 	       	PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL_FromPool(tableInformation);
 			
@@ -232,6 +233,7 @@ public class MainClass {
 	            	while (rsMSSql.next()) {
 	            		
 	            		for (int i = 1; i <= columnNames.size(); i++) {
+	            			//if(tableInformation.getTableName().equals("mobile_procedure_map") && i==7 && rsMSSql.getObject(i).toString().equals("AILK02"))
 	            			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i),rsmd.getColumnTypeName(i)));
 						}
 	            		stmtPostgreSQL.addBatch();
@@ -264,14 +266,6 @@ public class MainClass {
 	private static void setMaxCountTableVAlue(SQLServerConnection conM,String schema) throws SQLException {
 		maxLenghtCountNumber = getMaxLenCountMssqlTable(conM, schema);
 	}
-
-//	private static String printTime(long sec) {
-//		long hour = sec / 3600;
-//		long minutes = (sec / 60) - (60 * hour);
-//		long seconds = sec - (60 * minutes) - (3600 * hour);
-//				
-//		return ((hour>0) ? hour+" ч. ":"") + ((minutes>0) ? minutes+" мин. ":"") +seconds+" сек.";
-//	}
 
 	private static void setMaxLenghtTableName(List<TableInformation> listTables) {
 		TableInformation longest = listTables.stream().
@@ -402,7 +396,7 @@ public class MainClass {
 		String sql =
 		"SELECT LOWER(TABLE_NAME) "+
 		"FROM INFORMATION_SCHEMA.TABLES "
-		+"WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = '" + schema + "' ";
+		+"WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = '" + schema + "'";
 		List<String> listTableName = null;
 		try (Statement stmt = con.createStatement();){
 			listTableName =  singleColumnToList(stmt.executeQuery(sql));
