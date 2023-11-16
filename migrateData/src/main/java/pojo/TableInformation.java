@@ -4,12 +4,19 @@ public class TableInformation {
 	
 	private String tableName;
 	private Boolean alreadyProcessing=false;
+	private Boolean isFinishedProcess=false;
 	private int totalRows = 0;
 	
 	public enum QuantitativeRange {		
 		LESS_THAN_1000,
 		MORE_THAN_1000
 	}
+	
+	public enum FlagProcess {		
+		STARTING_PROCESS,
+		NOT_START_PROCESS
+	}
+	
 	public TableInformation(String tableName) {
 		super();
 		this.tableName = tableName;
@@ -19,18 +26,27 @@ public class TableInformation {
 		return alreadyProcessing;
 	}
 	
-	public synchronized Boolean inProcess() {
-		//System.out.println(Thread.currentThread().getName()+" alreadyProcessed "+alreadyProcessing);
-		if(alreadyProcessing == false) {
-			alreadyProcessing = true;
-			return false;
-			//System.out.println(Thread.currentThread().getName()+" alreadyProcessed "+alreadyProcessed);
-		}
-		return alreadyProcessing;
-	}
-
-	public void setAlreadyProcessing(Boolean alreadyProcessing) {
-		this.alreadyProcessing = alreadyProcessing;
+	public synchronized FlagProcess inProcess(boolean isDepTable) throws InterruptedException {
+			// Процесс по таблице не запущен.
+			if(alreadyProcessing == false) {
+				//Запускаем..
+				alreadyProcessing = true;
+				//возвращаем 
+				return FlagProcess.STARTING_PROCESS;
+				//System.out.println(Thread.currentThread().getName()+" alreadyProcessed "+alreadyProcessed);
+			//Процесс по таблице уже запущен.	
+			} else {
+				if(isDepTable) {
+					while(!(isFinishedProcess)) {
+						// Ожидаем обработки таблицы в другом процессе, выходим
+						Thread.sleep(200);
+						// System.out.println(" Ждём... tableName="+tableName);
+					}
+					return FlagProcess.NOT_START_PROCESS;
+				}
+				// Рут таблица без ожиданий, проц не запускаем.
+				return FlagProcess.NOT_START_PROCESS;
+			}
 	}
 
 	public String getTableName() {
@@ -43,12 +59,6 @@ public class TableInformation {
 
 	public void setTableName(String tableName) {
 		this.tableName = tableName;
-	}
-
-	@Override
-	public String toString() {
-		return "TableInformation [tableName=" + tableName + ", alreadyProcessing=" + alreadyProcessing + ", totalRows="
-				+ totalRows + "]\n";
 	}
 
 	@Override
@@ -93,5 +103,19 @@ public class TableInformation {
 			return TableInformation.QuantitativeRange.LESS_THAN_1000;
 		}
 		return TableInformation.QuantitativeRange.MORE_THAN_1000;
+	}
+
+	public Boolean isFinishedProcess() {
+		return isFinishedProcess;
+	}
+
+	public void setFinishedProcess() {
+		this.isFinishedProcess = true;
+	}
+
+	@Override
+	public String toString() {
+		return " [tableName=" + tableName + ", alreadyProcessing=" + alreadyProcessing
+				+ ", isFinishedProcess=" + isFinishedProcess + ", totalRows=" + totalRows + "]";
 	}
 }

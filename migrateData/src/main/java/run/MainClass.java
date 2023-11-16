@@ -29,6 +29,7 @@ import connection.ConnectionToDatabases;
 import connection.PropMSSQLConnection;
 import connection.PropPostgreConnection;
 import pojo.TableInformation;
+import pojo.TableInformation.FlagProcess;
 import util.LOg;
 import util.PropertiesInFile;
 import util.Util;
@@ -85,12 +86,12 @@ public class MainClass {
 					List<String> schemas = intersectionOfLists(schemas_MSSQL, schemas_PostgreSQL);
 					for (int i = 0; i < schemas.size(); i++) {
 						String schema = schemas.get(i);				
-						if(IS_USE_MULTITHREAD) migrateTables_multithread(conM, conP, schema, schema);
-						else migrateTables(conM, conP, schema, schema);
+						if(IS_USE_MULTITHREAD) migrateTables_multiThread(conM, conP, schema, schema);
+						else migrateTables_singleThread(conM, conP, schema, schema);
 					}	
 				} else {
-					 if(IS_USE_MULTITHREAD) migrateTables_multithread(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
-					 else migrateTables(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
+					 if(IS_USE_MULTITHREAD) migrateTables_multiThread(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
+					 else migrateTables_singleThread(conM, conP, PROP_MSSQL.getSchema(), PROP_POSTGRES.getSchema());
 				}
 				
 				Instant end = Instant.now();
@@ -104,7 +105,7 @@ public class MainClass {
 		} catch (Throwable e) { LOg.ERROR(e); }
 	}
 
-	private static void migrateTables(SQLServerConnection conM, PgConnection conP,String MSSQLSchema, String postgreSchema) throws Throwable {
+	private static void migrateTables_singleThread(SQLServerConnection conM, PgConnection conP,String MSSQLSchema, String postgreSchema) throws Throwable {
 		// Транкейтим данные на PosygreSQL для данной схемы.
 		truncateAllTablePostgreSQL(conP, postgreSchema);
 			// Все табл что надо перенести.
@@ -125,7 +126,7 @@ public class MainClass {
 		 	//
 			for (int i = 0; i < listTables.size(); i++) {
 				TableInformation tableInformation = listTables.get(i);
-					migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
+					migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation, false);
 			}
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("-Завершено: Всего табл.: "+listTables.size()+" шт.");
@@ -133,7 +134,7 @@ public class MainClass {
 	}
 
 
-	private static void migrateTables_multithread(SQLServerConnection conM, PgConnection conP,String MSSQLSchema, String postgreSchema) throws Throwable {
+	private static void migrateTables_multiThread(SQLServerConnection conM, PgConnection conP,String MSSQLSchema, String postgreSchema) throws Throwable {
 		// Транкейтим данные на PosygreSQL для данной схемы.
 		truncateAllTablePostgreSQL(conP, postgreSchema);
 			// Все табл что надо перенести.
@@ -167,7 +168,7 @@ public class MainClass {
 							for (int j = 0; j < loopMax; j++) {
 								TableInformation tableInformation = linkedQueueTables.poll();
 								if(tableInformation == null) break;
-									migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation);
+									migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tableInformation, false);
 							}		
 						} catch (Throwable e) {
 							LOg.ERROR(e);
@@ -198,61 +199,65 @@ public class MainClass {
 	
 	private static int maxLenghtTableName = 1;
 	private static int maxLenghtCountNumber = 1;
-	private static void migrateTable_FromMSSQLToPosgreSQL(String MSSQLSchema, String postgreSchema, TableInformation tableInformation) throws Throwable {
-		
-		if(!(tableInformation.isEmpty()) & !(tableInformation.inProcess())) {
+	private static void migrateTable_FromMSSQLToPosgreSQL(String MSSQLSchema, String postgreSchema, TableInformation tableInformation, boolean isDepTable) throws Throwable {
+		//Если таблица пустая то на выход
+		if(!(tableInformation.isEmpty())) {
+			//Определяем она уже в процессе обработеи в другом потоке или нет
+			if(tableInformation.inProcess(isDepTable) == FlagProcess.STARTING_PROCESS) {
 				
-			SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer_FromPool(tableInformation); 
-	       	PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL_FromPool(tableInformation);
-			
-			
-			String tableName = tableInformation.getTableName();
-			List<String> listDepTables = getDependensiesTablesPostgreSQL(conP, postgreSchema, tableName);
-			
-			for (int i = 0; i < listDepTables.size(); i++) {
-				TableInformation tiDepTables = getTableInformation(listDepTables.get(i));
-					migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tiDepTables);
-			}
-			
-			List<String> columnNames_MSSQLTable      = getColumnNamesToList(conM,        MSSQLSchema, tableName);
-			List<String> columnNames_PostgreSQLTable = getColumnNamesToList(conP, postgreSchema, tableName);
-			List<String> columnNames = intersectionOfLists(columnNames_MSSQLTable, columnNames_PostgreSQLTable);
-			
-				String selectMSSQLTable = SELECT_FROM_MSSQLTable(MSSQLSchema,tableName,columnNames);
-		        String insertPostgreSQLTable = INSERT_INTO_PostgreSQLTable(postgreSchema,tableName,columnNames);
+				SQLServerConnection conM = ConnectionToDatabases.getConnectionToMSSqlServer_FromPool(tableInformation); 
+		       	PgConnection conP = ConnectionToDatabases.getConnectionToPostgreSQL_FromPool(tableInformation);
+				
+				String tableName = tableInformation.getTableName();
+				List<String> listDepTables = getDependensiesTablesPostgreSQL(conP, postgreSchema, tableName);
+				
+				for (int i = 0; i < listDepTables.size(); i++) {
+					TableInformation tiDepTables = getTableInformation(listDepTables.get(i));
+					// System.out.println(tableName+"    "+tiDepTables);
+						migrateTable_FromMSSQLToPosgreSQL(MSSQLSchema, postgreSchema, tiDepTables, true);
+				}
+				List<String> columnNames_MSSQLTable      = getColumnNamesToList(conM,        MSSQLSchema, tableName);
+				List<String> columnNames_PostgreSQLTable = getColumnNamesToList(conP, postgreSchema, tableName);
+				List<String> columnNames = intersectionOfLists(columnNames_MSSQLTable, columnNames_PostgreSQLTable);
+				
+					String selectMSSQLTable = SELECT_FROM_MSSQLTable(MSSQLSchema,tableName,columnNames);
+			        String insertPostgreSQLTable = INSERT_INTO_PostgreSQLTable(postgreSchema,tableName,columnNames);
+			        
+		        try (PreparedStatement stmtMSSql = conM.prepareStatement(selectMSSQLTable); 
+		        		PreparedStatement stmtPostgreSQL = conP.prepareStatement(insertPostgreSQLTable);
+		        			ResultSet rsMSSql = stmtMSSql.executeQuery();) {
+		
+		            ResultSetMetaData rsmd=rsMSSql.getMetaData();
+		            
+		            int rowCount = 0;
+		            Instant start = Instant.now();
+		            
+		            	while (rsMSSql.next()) {
+		            		
+		            		for (int i = 1; i <= columnNames.size(); i++) {
+		            			//if(tableInformation.getTableName().equals("mobile_procedure_map") && i==7 && rsMSSql.getObject(i).toString().equals("AILK02"))
+		            			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i),rsmd.getColumnTypeName(i)));
+							}
+		            		stmtPostgreSQL.addBatch();
+		            		rowCount++;
+		            	}
+		            	try {
+			            	int[] res = stmtPostgreSQL.executeBatch();
+			            	Instant end = Instant.now();
+			            	int mltn=maxLenghtTableName;
+			            	int mlcn=maxLenghtCountNumber;
+			            	//
+			            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,Util.printTime(Duration.between(start, end).getSeconds()));
+			            	LOg.INFO(s);
+		            	} catch(Throwable t) {
+		            		LOg.INFO("ERR: "+tableName+" "+t.getMessage());
+		            	}
+		        }
 		        
-	        try (PreparedStatement stmtMSSql = conM.prepareStatement(selectMSSQLTable); 
-	        		PreparedStatement stmtPostgreSQL = conP.prepareStatement(insertPostgreSQLTable);
-	        			ResultSet rsMSSql = stmtMSSql.executeQuery();) {
-	
-	            ResultSetMetaData rsmd=rsMSSql.getMetaData();
-	            
-	            int rowCount = 0;
-	            Instant start = Instant.now();
-	            
-	            	while (rsMSSql.next()) {
-	            		
-	            		for (int i = 1; i <= columnNames.size(); i++) {
-	            			//if(tableInformation.getTableName().equals("mobile_procedure_map") && i==7 && rsMSSql.getObject(i).toString().equals("AILK02"))
-	            			stmtPostgreSQL.setObject(i ,fromJavaTypesToPostgresSql(rsMSSql.getObject(i),rsmd.getColumnTypeName(i)));
-						}
-	            		stmtPostgreSQL.addBatch();
-	            		rowCount++;
-	            	}
-	            	try {
-		            	int[] res = stmtPostgreSQL.executeBatch();
-		            	Instant end = Instant.now();
-		            	int mltn=maxLenghtTableName;
-		            	int mlcn=maxLenghtCountNumber;
-		            	//
-		            	String s = String.format(" (MSSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d ----> (PostgreSQL) %s.%-"+mltn+"s строк: %-"+mlcn+"d Заняло: %s", MSSQLSchema,tableName,rowCount,postgreSchema,tableName,rowCount,Util.printTime(Duration.between(start, end).getSeconds()));
-		            	LOg.INFO(s);
-	            	} catch(Throwable t) {
-	            		LOg.INFO("ERR: "+tableName+" "+t.getMessage());
-	            	}
-	        }
-	        
-	        ConnectionToDatabases.returnConnectionInPool(conP,conM);
+		        ConnectionToDatabases.returnConnectionInPool(conP,conM);
+		        //Процесс завершён.
+		        tableInformation.setFinishedProcess();
+			}
 		}
 	}
 	
