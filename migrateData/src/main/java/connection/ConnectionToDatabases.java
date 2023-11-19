@@ -27,7 +27,7 @@ public class ConnectionToDatabases {
 	private static PropMSSQLConnection pMssql_;
 	private static PropPostgreConnection pPostgres_;
 	
-	private static boolean IS_ENABLED_CONNECTION_POOL =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_enabled_connection_pool")));
+	private static boolean IS_USE_MULTITHREAD =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
 	
 	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer(PropMSSQLConnection p) throws SQLException {
 		String connectionUrl = p.getStringConnection();
@@ -61,7 +61,7 @@ public class ConnectionToDatabases {
 		long timeOut =0;
 		Connection con = null;
 		
-		if(IS_ENABLED_CONNECTION_POOL) {
+		if(IS_USE_MULTITHREAD) {
 			do {
 				if(MSSQL_SERVER == co) {
 					con= blockingQueue_MSSQL.poll();
@@ -105,19 +105,21 @@ public class ConnectionToDatabases {
 		int poolSize =30;
 		pMssql_ = pMssql; 
 		pPostgres_ = pPostgres;
+		blockingQueue_MSSQL = new ConcurrentLinkedQueue<SQLServerConnection>();
+		blockingQueue_POSTGRES = new ConcurrentLinkedQueue<PgConnection>();
 		
 		single_connection_mssql = getConnectionToMSSqlServer(pMssql);
 		single_connection_postgres = getConnectionToPostgreSQL(pPostgres);
 		
-		blockingQueue_MSSQL = new ConcurrentLinkedQueue<SQLServerConnection>();
-		for (int i = 0; i < poolSize; i++) {
-			blockingQueue_MSSQL.add(getConnectionToMSSqlServer(pMssql));
+		if(IS_USE_MULTITHREAD) {
+			for (int i = 0; i < poolSize; i++) {
+				blockingQueue_MSSQL.add(getConnectionToMSSqlServer(pMssql));
+			}
+			for (int i = 0; i < poolSize; i++) {
+				blockingQueue_POSTGRES.add(getConnectionToPostgreSQL(pPostgres));
+			}
 		}
-		
-		blockingQueue_POSTGRES = new ConcurrentLinkedQueue<PgConnection>();
-		for (int i = 0; i < poolSize; i++) {
-			blockingQueue_POSTGRES.add(getConnectionToPostgreSQL(pPostgres));
-		}
+
 		Instant end = Instant.now();
 		long sec = Duration.between(start, end).getSeconds();
 
