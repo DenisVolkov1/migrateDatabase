@@ -36,14 +36,14 @@ import util.Util;
 
 public class MainClass {
 	
-	private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
-	private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
+	private static PropMSSQLConnection PROP_MSSQL;
+	private static PropPostgreConnection PROP_POSTGRES;
 	
 	//private static final PropMSSQLConnection PROP_MSSQL = new PropMSSQLConnection("localhost", "1434", "SCPRD", "wmwhse1", "sa", "sql");
 	//private static final PropPostgreConnection PROP_POSTGRES = new PropPostgreConnection("localhost", "5432", "SCPRD", "wmwhse1", "postgres", "sql");
 	
-	private static boolean IS_ALL_SCHEMAS =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas")));
-	private static boolean IS_USE_MULTITHREAD =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
+	private static boolean IS_ALL_SCHEMAS;
+	private static boolean IS_USE_MULTITHREAD;
 	
 	private static List<TableInformation> listTables;
 	private static Map<String, Integer> totalCountMssqlTable;
@@ -60,6 +60,12 @@ public class MainClass {
 	private static void runMain() {
 		
 		try {
+			PROP_MSSQL = new PropMSSQLConnection(PropertiesInFile.getRunProperties());
+			PROP_POSTGRES = new PropPostgreConnection(PropertiesInFile.getRunProperties());
+			//
+			IS_ALL_SCHEMAS = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_all_schemas")));
+			IS_USE_MULTITHREAD = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
+			
 			Instant start = Instant.now();
 			
 			LOg.INFO("------------------------------------------------------");

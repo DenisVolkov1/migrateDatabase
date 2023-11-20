@@ -1,5 +1,6 @@
 package connection;
 
+import java.io.FileNotFoundException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -27,7 +28,15 @@ public class ConnectionToDatabases {
 	private static PropMSSQLConnection pMssql_;
 	private static PropPostgreConnection pPostgres_;
 	
-	private static boolean IS_USE_MULTITHREAD =Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
+	private static boolean IS_USE_MULTITHREAD;
+	
+	static {
+		try {
+			IS_USE_MULTITHREAD = Util.intToBool(Integer.parseInt( PropertiesInFile.getRunProperties().getProperty("is_use_multithread")));
+		} catch (Throwable t) {
+			LOg.ERROR(t);
+		}
+	}
 	
 	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer(PropMSSQLConnection p) throws SQLException {
 		String connectionUrl = p.getStringConnection();
