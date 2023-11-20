@@ -47,6 +47,7 @@ public class MainClass {
 	
 	private static List<TableInformation> listTables;
 	private static Map<String, Integer> totalCountMssqlTable;
+	private static final int TOTAL_PARTS = 10;
 	
 	public static void main(String[] args) {
 		try {
@@ -73,6 +74,7 @@ public class MainClass {
 			LOg.INFO("------------------------------------------------------");
 			LOg.INFO("-    PROP_MSSQL = " + PROP_MSSQL);
 			LOg.INFO("- PROP_POSTGRES = " + PROP_POSTGRES);
+			LOg.INFO("- IS_ALL_SCHEMAS = ["+IS_ALL_SCHEMAS+"] : IS_USE_MULTITHREAD = ["+IS_USE_MULTITHREAD+"]");
 			LOg.INFO("------------------------------------------------------");
 			try (final Connection conM = ConnectionToDatabases.getConnectionToMSSqlServer(PROP_MSSQL); 
 					final Connection conP = ConnectionToDatabases.getConnectionToPostgreSQL(PROP_POSTGRES);) {
@@ -159,11 +161,10 @@ public class MainClass {
 			setMaxLenghtTableName(listTables);
 			setMaxCountTableVAlue(conM, MSSQLSchema);
 			
-			final int numberOfThreads = (listTables.size() / 10) + 1;
-			//final int numberOfThreads = listTables.size();
+			final int numberOfThreads = (listTables.size() / TOTAL_PARTS ) + 1;
 			//
 			ConcurrentLinkedQueue<TableInformation> linkedQueueTables = new ConcurrentLinkedQueue<TableInformation>(listTables);
-			final int loopMax = 10;
+			final int loopMax = TOTAL_PARTS;
 		 	//
 			List<Thread> allThread = new ArrayList<Thread>();// Потоки для обработки каждой табл.
 			Thread startThreads = new Thread(()->{ // Поток запуска который запускает все потоки

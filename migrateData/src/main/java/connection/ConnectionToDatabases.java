@@ -1,6 +1,5 @@
 package connection;
 
-import java.io.FileNotFoundException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -11,7 +10,6 @@ import org.postgresql.jdbc.PgConnection;
 import com.microsoft.sqlserver.jdbc.SQLServerConnection;
 
 import pojo.TableInformation;
-import pojo.TableInformation.QuantitativeRange;
 import util.LOg;
 import util.PropertiesInFile;
 import util.Util;
@@ -46,24 +44,27 @@ public class ConnectionToDatabases {
 		return (SQLServerConnection) con;
 	}
 	
-	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL(PropPostgreConnection p) throws SQLException {
+	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL(PropPostgreConnection p) throws SQLException, ClassNotFoundException {
 		String connectionUrl = p.getStringConnection();
+		
+		Class.forName("org.postgresql.Driver");
+		
 		Connection con = null;
 			con = DriverManager.getConnection(connectionUrl);
 
 		return (PgConnection) con;
 	}
 	
-	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException {
+	public static com.microsoft.sqlserver.jdbc.SQLServerConnection getConnectionToMSSqlServer_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException, ClassNotFoundException {
 		return (SQLServerConnection) getConnection(MSSQL_SERVER, tableInformation);
 	}
 	
-	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException {
+	public static org.postgresql.jdbc.PgConnection getConnectionToPostgreSQL_FromPool(TableInformation tableInformation) throws InterruptedException, SQLException, ClassNotFoundException {
 		return (PgConnection) getConnection(POSTGRESQL, tableInformation);
 	}
 
 	@SuppressWarnings("resource")
-	private static <T extends Connection> Connection getConnection(ConObj co,TableInformation tableInformation) throws InterruptedException, SQLException {
+	private static <T extends Connection> Connection getConnection(ConObj co,TableInformation tableInformation) throws InterruptedException, SQLException, ClassNotFoundException {
 		if(!(isInitPool)) throw new RuntimeException("Pool is not init!");
 		if(MSSQL_SERVER != co && POSTGRESQL != co) throw new RuntimeException("Unrecognize connection class !!!");
 		
@@ -107,7 +108,7 @@ public class ConnectionToDatabases {
 		}
 	}
 	
-	public static void initPool(PropMSSQLConnection pMssql, PropPostgreConnection pPostgres) throws InterruptedException, SQLException {
+	public static void initPool(PropMSSQLConnection pMssql, PropPostgreConnection pPostgres) throws InterruptedException, SQLException, ClassNotFoundException {
 		if(isInitPool) throw new RuntimeException("Pool is init arlready!");
 		
 		Instant start = Instant.now();
